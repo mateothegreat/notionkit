@@ -59,8 +59,11 @@ export interface ExportPlugin {
 export class ExportPluginManager {
   private plugins: ExportPlugin[] = [];
   private eventStream$ = new Subject<ExportEventPayload>();
+  private silent = false;
 
   constructor(private pluginClasses: Array<new () => ExportPlugin>) {
+    // Enable silent mode during testing
+    this.silent = process.env.NODE_ENV === "test" || process.env.VITEST === "true";
     this.initializePlugins();
     this.setupEventRouting();
   }
@@ -74,7 +77,9 @@ export class ExportPluginManager {
         const plugin = new PluginClass();
         this.plugins.push(plugin);
       } catch (error) {
-        console.error(`Failed to initialize plugin ${PluginClass.name}`, error);
+        if (!this.silent) {
+          console.error(`Failed to initialize plugin ${PluginClass.name}`, error);
+        }
       }
     });
   }
@@ -111,7 +116,9 @@ export class ExportPluginManager {
       ...this.plugins.map((plugin) =>
         from(plugin.onExportStart(config)).pipe(
           catchError((error) => {
-            console.error("Plugin error in onExportStart:", error);
+            if (!this.silent) {
+              console.error("Plugin error in onExportStart:", error);
+            }
             return of(undefined);
           })
         )
@@ -130,7 +137,9 @@ export class ExportPluginManager {
       ...this.plugins.map((plugin) =>
         from(plugin.onEntity(entity)).pipe(
           catchError((error) => {
-            console.error("Plugin error in onEntity:", error);
+            if (!this.silent) {
+              console.error("Plugin error in onEntity:", error);
+            }
             return of(undefined);
           })
         )
@@ -149,7 +158,9 @@ export class ExportPluginManager {
       ...this.plugins.map((plugin) =>
         from(plugin.onError(error)).pipe(
           catchError((err) => {
-            console.error("Plugin error in onError:", err);
+            if (!this.silent) {
+              console.error("Plugin error in onError:", err);
+            }
             return of(undefined);
           })
         )
@@ -168,7 +179,9 @@ export class ExportPluginManager {
       ...this.plugins.map((plugin) =>
         from(plugin.onExportComplete(summary)).pipe(
           catchError((error) => {
-            console.error("Plugin error in onExportComplete:", error);
+            if (!this.silent) {
+              console.error("Plugin error in onExportComplete:", error);
+            }
             return of(undefined);
           })
         )
@@ -199,10 +212,28 @@ export class ExportPluginManager {
         try {
           await plugin.cleanup();
         } catch (error) {
-          console.error("Plugin cleanup error:", error);
+          if (!this.silent) {
+            console.error("Plugin cleanup error:", error);
+          }
         }
       })
     );
+  }
+
+  /**
+   * Set silent mode for testing.
+   *
+   * @param silent - Whether to suppress error logging
+   */
+  setSilentMode(silent: boolean): void {
+    this.silent = silent;
+  }
+
+  /**
+   * Get plugins for testing.
+   */
+  getPlugins(): ExportPlugin[] {
+    return this.plugins;
   }
 }
 
@@ -214,8 +245,12 @@ export class ExportPluginManager {
 export class FSPlugin implements ExportPlugin {
   private fileMap: Map<string, string> = new Map();
   private activeEntityCount = 0;
+  private silent = false;
 
-  constructor(private config: Partial<ExporterConfig> = {}) {}
+  constructor(private config: Partial<ExporterConfig> = {}) {
+    // Enable silent mode during testing
+    this.silent = process.env.NODE_ENV === "test" || process.env.VITEST === "true";
+  }
 
   onExportStart(config: ExporterConfig): Observable<void> {
     return new Observable<void>((subscriber) => {
@@ -275,7 +310,9 @@ export class FSPlugin implements ExportPlugin {
 
   onError(error: Error): Observable<void> {
     return new Observable<void>((subscriber) => {
-      console.error("[FSPlugin] Error:", error);
+      if (!this.silent) {
+        console.error("[FSPlugin] Error:", error);
+      }
       subscriber.next();
       subscriber.complete();
     });
@@ -309,6 +346,15 @@ export class FSPlugin implements ExportPlugin {
    */
   getFileMap(): Map<string, string> {
     return this.fileMap;
+  }
+
+  /**
+   * Set silent mode for testing.
+   *
+   * @param silent - Whether to suppress error logging
+   */
+  setSilentMode(silent: boolean): void {
+    this.silent = silent;
   }
 }
 
@@ -385,7 +431,10 @@ export function initPluginSystem(commands: Command[]): void {
 
   // Setup plugin discovery - could be extended to scan directories
   // or load from npm packages in the future
-  console.log(`Plugin system initialized with ${globalRegistry.getAll().size} plugins`);
+  const silent = process.env.NODE_ENV === "test" || process.env.VITEST === "true";
+  if (!silent) {
+    console.log(`Plugin system initialized with ${globalRegistry.getAll().size} plugins`);
+  }
 }
 
 /**
@@ -401,7 +450,10 @@ export function registerPlugin(plugin: ExportPlugin): void {
   const PluginClass = plugin.constructor as new () => ExportPlugin;
   globalRegistry.register(pluginName, PluginClass);
 
-  console.log(`Plugin '${pluginName}' registered globally`);
+  const silent = process.env.NODE_ENV === "test" || process.env.VITEST === "true";
+  if (!silent) {
+    console.log(`Plugin '${pluginName}' registered globally`);
+  }
 }
 
 /**
