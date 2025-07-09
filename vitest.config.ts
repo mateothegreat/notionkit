@@ -1,3 +1,4 @@
+import tsconfigPaths from "vite-tsconfig-paths";
 import { defineConfig } from "vitest/config";
 
 const testInclude = ["./src/**/*.test.ts"];
@@ -5,6 +6,7 @@ const coverageInclude = ["./src/**/*.ts"];
 const exclude = ["node_modules/**", "**/node_modules/**"];
 
 export default defineConfig({
+  plugins: [tsconfigPaths()],
   test: {
     include: testInclude,
     exclude,

@@ -2,7 +2,7 @@ import type { Command } from "@oclif/core";
 import * as fs from "fs/promises";
 import * as path from "path";
 import { from, merge, Observable, of, Subject } from "rxjs";
-import { catchError, mergeMap } from "rxjs/operators";
+import { catchError, map, mergeMap, toArray } from "rxjs/operators";
 import type { ExporterConfig, ExportEventPayload, ExportSummary, NotionEntity } from "../types";
 
 /**
@@ -237,9 +237,21 @@ export class FSPlugin implements ExportPlugin {
       const entityPath = this.getPathForEntity(entity);
       try {
         this.activeEntityCount++;
-        // TODO: Write entity to filesystem
-        subscriber.next();
-        subscriber.complete();
+
+        // Write entity to filesystem
+        const outputDir = this.config.outputDir || "./notion-export";
+        const entityDir = path.dirname(entityPath);
+
+        fs.mkdir(entityDir, { recursive: true })
+          .then(() => fs.writeFile(entityPath, JSON.stringify(entity, null, 2)))
+          .then(() => {
+            this.fileMap.set(entity.id, entityPath);
+            subscriber.next();
+            subscriber.complete();
+          })
+          .catch((error) => {
+            subscriber.error(error);
+          });
       } catch (error) {
         subscriber.error(error);
       }
@@ -272,6 +284,7 @@ export class FSPlugin implements ExportPlugin {
   cleanup(): Promise<void> {
     // Close any pending file handles
     this.fileMap.clear();
+    this.activeEntityCount = 0;
     return Promise.resolve();
   }
 
@@ -283,7 +296,81 @@ export class FSPlugin implements ExportPlugin {
     const typeDir = path.join(baseDir, entity.type);
     return path.join(typeDir, `${entity.id}.json`);
   }
+
+  /**
+   * Get the number of active entities being processed.
+   */
+  getActiveEntityCount(): number {
+    return this.activeEntityCount;
+  }
+
+  /**
+   * Get the file map for testing purposes.
+   */
+  getFileMap(): Map<string, string> {
+    return this.fileMap;
+  }
 }
+
+/**
+ * Global plugin registry for managing available plugins.
+ */
+class PluginRegistry {
+  private plugins: Map<string, new () => ExportPlugin> = new Map();
+  private commands: Command[] = [];
+
+  /**
+   * Register a plugin class.
+   */
+  register(name: string, plugin: new () => ExportPlugin): void {
+    this.plugins.set(name, plugin);
+  }
+
+  /**
+   * Get a plugin class by name.
+   */
+  get(name: string): new () => ExportPlugin | undefined {
+    return this.plugins.get(name);
+  }
+
+  /**
+   * Get all registered plugins.
+   */
+  getAll(): Map<string, new () => ExportPlugin> {
+    return new Map(this.plugins);
+  }
+
+  /**
+   * Remove a plugin from registry.
+   */
+  unregister(name: string): boolean {
+    return this.plugins.delete(name);
+  }
+
+  /**
+   * Clear all plugins.
+   */
+  clear(): void {
+    this.plugins.clear();
+  }
+
+  /**
+   * Set commands for plugin system.
+   */
+  setCommands(commands: Command[]): void {
+    this.commands = commands;
+  }
+
+  /**
+   * Get commands.
+   */
+  getCommands(): Command[] {
+    return this.commands;
+  }
+}
+
+// Global plugin registry instance
+const globalRegistry = new PluginRegistry();
 
 /**
  * Initialize the plugin system.
@@ -291,9 +378,14 @@ export class FSPlugin implements ExportPlugin {
  * @param commands - CLI commands to enhance with plugin support
  */
 export function initPluginSystem(commands: Command[]): void {
-  // Setup plugin discovery and initialization
-  // This could scan for plugins in specific directories
-  // or load from npm packages
+  globalRegistry.setCommands(commands);
+
+  // Register default plugins
+  globalRegistry.register("fs", FSPlugin);
+
+  // Setup plugin discovery - could be extended to scan directories
+  // or load from npm packages in the future
+  console.log(`Plugin system initialized with ${globalRegistry.getAll().size} plugins`);
 }
 
 /**
@@ -302,14 +394,53 @@ export function initPluginSystem(commands: Command[]): void {
  * @param plugin - Plugin instance to register
  */
 export function registerPlugin(plugin: ExportPlugin): void {
-  // Global plugin registration logic
-  // This could maintain a registry of available plugins
+  // Get the plugin class name or generate a unique name
+  const pluginName = plugin.constructor.name || `plugin_${Date.now()}`;
+
+  // Convert instance to class for registration
+  const PluginClass = plugin.constructor as new () => ExportPlugin;
+  globalRegistry.register(pluginName, PluginClass);
+
+  console.log(`Plugin '${pluginName}' registered globally`);
+}
+
+/**
+ * Get a plugin from the global registry.
+ *
+ * @param name - Plugin name
+ * @returns Plugin class or undefined
+ */
+export function getPlugin(name: string): new () => ExportPlugin | undefined {
+  return globalRegistry.get(name);
+}
+
+/**
+ * Get all registered plugins.
+ *
+ * @returns Map of plugin names to classes
+ */
+export function getAllPlugins(): Map<string, new () => ExportPlugin> {
+  return globalRegistry.getAll();
+}
+
+/**
+ * Unregister a plugin from the global registry.
+ *
+ * @param name - Plugin name to remove
+ * @returns True if plugin was removed, false if not found
+ */
+export function unregisterPlugin(name: string): boolean {
+  return globalRegistry.unregister(name);
+}
+
+/**
+ * Clear all plugins from the global registry.
+ */
+export function clearPlugins(): void {
+  globalRegistry.clear();
 }
 
 /**
  * Default plugins that are always loaded.
  */
 export const defaultPlugins: Array<new () => ExportPlugin> = [FSPlugin];
-
-// Import required RxJS operators
-import { map, toArray } from "rxjs/operators";
