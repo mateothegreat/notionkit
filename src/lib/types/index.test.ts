@@ -1,4 +1,3 @@
-import { inspect } from "util";
 import { describe, expect, it } from "vitest";
 import type {
   ExporterConfig,
@@ -26,7 +25,6 @@ describe("Notion Types", () => {
         "relation",
         "composition"
       ];
-      console.log(inspect(validTypes, { colorize: true, compact: false }));
       expect(validTypes).toHaveLength(8);
     });
   });
@@ -37,7 +35,6 @@ describe("Notion Types", () => {
         id: "test-id",
         type: "page"
       };
-      console.log(inspect(entity, { colorize: true, compact: false }));
       expect(entity.id).toBe("test-id");
       expect(entity.type).toBe("page");
     });
@@ -51,7 +48,6 @@ describe("Notion Types", () => {
           page_id: "parent-page-id"
         }
       };
-      console.log(inspect(entity, { colorize: true, compact: false }));
       expect(entity.parent).toBeDefined();
       expect(entity.parent?.page_id).toBe("parent-page-id");
     });
@@ -67,7 +63,6 @@ describe("Notion Types", () => {
         last_edited_time: "2024-01-01T00:00:00Z",
         archived: false
       };
-      console.log(inspect(page, { colorize: true, compact: false }));
       expect(page.type).toBe("page");
       expect(page.title).toEqual(["Test Page"]);
       expect(page.archived).toBe(false);
@@ -84,7 +79,6 @@ describe("Notion Types", () => {
         archived: false,
         children: []
       };
-      console.log(inspect(page, { colorize: true, compact: false }));
       expect(page.properties).toBeDefined();
       expect(page.children).toBeDefined();
     });
@@ -99,7 +93,6 @@ describe("Notion Types", () => {
         created_time: "2024-01-01T00:00:00Z",
         last_edited_time: "2024-01-01T00:00:00Z"
       };
-      console.log(inspect(block, { colorize: true, compact: false }));
       expect(block.type).toBe("block");
       expect(block.blockType).toBe("paragraph");
     });
@@ -121,7 +114,6 @@ describe("Notion Types", () => {
         created_time: "2024-01-01T00:00:00Z",
         last_edited_time: "2024-01-01T00:00:00Z"
       };
-      console.log(inspect(parentBlock, { colorize: true, compact: false }));
       expect(parentBlock.children).toHaveLength(1);
       expect(parentBlock.children?.[0].id).toBe("child-block-id");
     });
@@ -138,7 +130,6 @@ describe("Notion Types", () => {
         created_time: "2024-01-01T00:00:00Z",
         last_edited_time: "2024-01-01T00:00:00Z"
       };
-      console.log(inspect(database, { colorize: true, compact: false }));
       expect(database.type).toBe("database");
       expect(database.title).toEqual(["Test Database"]);
       expect(database.schema).toBeDefined();
@@ -152,7 +143,6 @@ describe("Notion Types", () => {
         type: "user",
         name: "Test User"
       };
-      console.log(inspect(user, { colorize: true, compact: false }));
       expect(user.type).toBe("user");
       expect(user.name).toBe("Test User");
     });
@@ -166,7 +156,6 @@ describe("Notion Types", () => {
         avatarUrl: "https://example.com/avatar.jpg",
         status: "active"
       };
-      console.log(inspect(user, { colorize: true, compact: false }));
       expect(user.email).toBe("test@example.com");
       expect(user.avatarUrl).toBeDefined();
       expect(user.status).toBe("active");
@@ -182,7 +171,6 @@ describe("Notion Types", () => {
         created_time: "2024-01-01T00:00:00Z",
         last_edited_time: "2024-01-01T00:00:00Z"
       };
-      console.log(inspect(comment, { colorize: true, compact: false }));
       expect(comment.type).toBe("comment");
       expect(comment.content).toEqual(["This is a comment"]);
     });
@@ -206,7 +194,6 @@ describe("Notion Types", () => {
         },
         user
       };
-      console.log(inspect(comment, { colorize: true, compact: false }));
       expect(comment.parent?.page_id).toBe("page-id");
       expect(comment.user?.name).toBe("Commenter");
     });
@@ -217,7 +204,6 @@ describe("Notion Types", () => {
       const config: ExporterConfig = {
         token: "test-token"
       };
-      console.log(inspect(config, { colorize: true, compact: false }));
       expect(config.token).toBe("test-token");
     });
 
@@ -232,7 +218,6 @@ describe("Notion Types", () => {
         plugins: ["plugin1", "plugin2"],
         debug: true
       };
-      console.log(inspect(config, { colorize: true, compact: false }));
       expect(config.workspace).toBe("workspace-id");
       expect(config.parallelLimit).toBe(5);
       expect(config.plugins).toHaveLength(2);
@@ -245,7 +230,6 @@ describe("Notion Types", () => {
         type: "start",
         config: { token: "test-token" }
       };
-      console.log(inspect(payload, { colorize: true, compact: false }));
       expect(payload.type).toBe("start");
       expect(payload.config.token).toBe("test-token");
     });
@@ -259,7 +243,6 @@ describe("Notion Types", () => {
         type: "entity",
         entity
       };
-      console.log(inspect(payload, { colorize: true, compact: false }));
       expect(payload.type).toBe("entity");
       expect(payload.entity.id).toBe("entity-id");
     });
@@ -275,7 +258,6 @@ describe("Notion Types", () => {
         error,
         entity
       };
-      console.log(inspect(payload, { colorize: true, compact: false }));
       expect(payload.type).toBe("error");
       expect(payload.error.message).toBe("Test error");
       expect(payload.entity?.id).toBe("entity-id");
@@ -292,7 +274,6 @@ describe("Notion Types", () => {
         type: "complete",
         summary
       };
-      console.log(inspect(payload, { colorize: true, compact: false }));
       expect(payload.type).toBe("complete");
       expect(payload.summary.successCount).toBe(10);
     });
@@ -303,7 +284,6 @@ describe("Notion Types", () => {
         complete: 50,
         total: 100
       };
-      console.log(inspect(payload, { colorize: true, compact: false }));
       expect(payload.type).toBe("progress");
       expect(payload.complete).toBe(50);
       expect(payload.total).toBe(100);
@@ -322,7 +302,6 @@ describe("Notion Types", () => {
         },
         duration: 10000
       };
-      console.log(inspect(summary, { colorize: true, compact: false }));
       expect(summary.successCount).toBe(100);
       expect(summary.errorCount).toBe(5);
       expect(summary.processedTypes.page).toBe(50);
@@ -337,7 +316,6 @@ describe("Notion Types", () => {
         duration: 5000,
         lastError: new Error("Last error")
       };
-      console.log(inspect(summary, { colorize: true, compact: false }));
       expect(summary.lastError?.message).toBe("Last error");
     });
   });

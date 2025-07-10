@@ -26,6 +26,17 @@ vi.mock("path", () => ({
   dirname: vi.fn((path) => path.split("/").slice(0, -1).join("/"))
 }));
 
+// Mock the logging module to prevent test output
+vi.mock("../utils/logging", () => ({
+  log: {
+    info: vi.fn(),
+    error: vi.fn(),
+    success: vi.fn(),
+    debug: vi.fn(),
+    warning: vi.fn()
+  }
+}));
+
 describe("ExportPlugin Interface", () => {
   it("should define the correct interface structure", () => {
     const mockPlugin: ExportPlugin = {
@@ -103,17 +114,16 @@ describe("ExportPluginManager", () => {
       expect(pluginManager.getPlugins()).toHaveLength(1);
     });
 
-    it("should set silent mode during testing", () => {
+    it("should automatically set silent mode during testing", () => {
       pluginManager = new ExportPluginManager([]);
-      // Should not throw since it's silent during testing
       expect(() => pluginManager.setSilentMode(true)).not.toThrow();
+      expect(() => pluginManager.setSilentMode(false)).not.toThrow();
     });
   });
 
   describe("event handling", () => {
     beforeEach(() => {
-      pluginManager = new ExportPluginManager([]);
-      pluginManager.getPlugins().push(mockPlugin);
+      pluginManager = new ExportPluginManager([mockPlugin]);
     });
 
     it("should notify plugins of start events", async () => {
@@ -124,7 +134,8 @@ describe("ExportPluginManager", () => {
 
       pluginManager.notify(startPayload);
 
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Wait for async event handling
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(mockPlugin.onExportStart).toHaveBeenCalledWith(config);
     });
@@ -142,7 +153,8 @@ describe("ExportPluginManager", () => {
 
       pluginManager.notify(entityPayload);
 
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Wait for async event handling
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(mockPlugin.onEntity).toHaveBeenCalledWith(entity);
     });
@@ -156,7 +168,8 @@ describe("ExportPluginManager", () => {
 
       pluginManager.notify(errorPayload);
 
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Wait for async event handling
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(mockPlugin.onError).toHaveBeenCalledWith(error);
     });
@@ -176,7 +189,8 @@ describe("ExportPluginManager", () => {
 
       pluginManager.notify(completePayload);
 
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Wait for async event handling
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(mockPlugin.onExportComplete).toHaveBeenCalledWith(summary);
     });
@@ -190,7 +204,8 @@ describe("ExportPluginManager", () => {
 
       pluginManager.notify(progressPayload);
 
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Wait for async event handling
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(mockPlugin.onExportStart).not.toHaveBeenCalled();
       expect(mockPlugin.onEntity).not.toHaveBeenCalled();
@@ -205,7 +220,8 @@ describe("ExportPluginManager", () => {
 
       pluginManager.notify(unknownPayload);
 
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Wait for async event handling
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(mockPlugin.onExportStart).not.toHaveBeenCalled();
       expect(mockPlugin.onEntity).not.toHaveBeenCalled();
@@ -215,11 +231,14 @@ describe("ExportPluginManager", () => {
 
     it("should handle multiple plugins", async () => {
       const mockPlugin2 = {
-        ...mockPlugin,
-        onEntity: vi.fn().mockReturnValue(of(undefined))
+        onExportStart: vi.fn().mockReturnValue(of(undefined)),
+        onEntity: vi.fn().mockReturnValue(of(undefined)),
+        onExportComplete: vi.fn().mockReturnValue(of(undefined)),
+        onError: vi.fn().mockReturnValue(of(undefined)),
+        cleanup: vi.fn().mockResolvedValue(undefined)
       };
 
-      pluginManager.getPlugins().push(mockPlugin2);
+      pluginManager = new ExportPluginManager([mockPlugin, mockPlugin2]);
 
       const entity: NotionEntity = {
         id: "test-id",
@@ -228,7 +247,8 @@ describe("ExportPluginManager", () => {
 
       pluginManager.notify({ type: "entity", entity });
 
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Wait for async event handling
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(mockPlugin.onEntity).toHaveBeenCalledWith(entity);
       expect(mockPlugin2.onEntity).toHaveBeenCalledWith(entity);
@@ -236,11 +256,14 @@ describe("ExportPluginManager", () => {
 
     it("should handle plugin errors in event handlers gracefully", async () => {
       const failingPlugin = {
-        ...mockPlugin,
-        onEntity: vi.fn().mockReturnValue(throwError(() => new Error("Plugin error")))
+        onExportStart: vi.fn().mockReturnValue(of(undefined)),
+        onEntity: vi.fn().mockReturnValue(throwError(() => new Error("Plugin error"))),
+        onExportComplete: vi.fn().mockReturnValue(of(undefined)),
+        onError: vi.fn().mockReturnValue(of(undefined)),
+        cleanup: vi.fn().mockResolvedValue(undefined)
       };
 
-      pluginManager.getPlugins().push(failingPlugin);
+      pluginManager = new ExportPluginManager([failingPlugin]);
 
       const entity: NotionEntity = {
         id: "test-id",
@@ -249,21 +272,44 @@ describe("ExportPluginManager", () => {
 
       pluginManager.notify({ type: "entity", entity });
 
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Wait for async event handling
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(failingPlugin.onEntity).toHaveBeenCalledWith(entity);
+    });
+
+    it("should handle plugin errors without stopping other plugins", async () => {
+      const failingPlugin = {
+        onExportStart: vi.fn().mockReturnValue(throwError(() => new Error("Plugin error"))),
+        onEntity: vi.fn().mockReturnValue(of(undefined)),
+        onExportComplete: vi.fn().mockReturnValue(of(undefined)),
+        onError: vi.fn().mockReturnValue(of(undefined)),
+        cleanup: vi.fn().mockResolvedValue(undefined)
+      };
+
+      pluginManager = new ExportPluginManager([failingPlugin, mockPlugin]);
+
+      pluginManager.notify({ type: "start", config });
+
+      // Wait for async event handling
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(failingPlugin.onExportStart).toHaveBeenCalledWith(config);
+      expect(mockPlugin.onExportStart).toHaveBeenCalledWith(config);
     });
   });
 
   describe("cleanup", () => {
     it("should cleanup all plugins", async () => {
       const mockPlugin2 = {
-        ...mockPlugin,
+        onExportStart: vi.fn().mockReturnValue(of(undefined)),
+        onEntity: vi.fn().mockReturnValue(of(undefined)),
+        onExportComplete: vi.fn().mockReturnValue(of(undefined)),
+        onError: vi.fn().mockReturnValue(of(undefined)),
         cleanup: vi.fn().mockResolvedValue(undefined)
       };
 
-      pluginManager = new ExportPluginManager([]);
-      pluginManager.getPlugins().push(mockPlugin, mockPlugin2);
+      pluginManager = new ExportPluginManager([mockPlugin, mockPlugin2]);
 
       await pluginManager.cleanup();
 
@@ -273,15 +319,18 @@ describe("ExportPluginManager", () => {
 
     it("should handle cleanup errors gracefully", async () => {
       const failingPlugin = {
-        ...mockPlugin,
+        onExportStart: vi.fn().mockReturnValue(of(undefined)),
+        onEntity: vi.fn().mockReturnValue(of(undefined)),
+        onExportComplete: vi.fn().mockReturnValue(of(undefined)),
+        onError: vi.fn().mockReturnValue(of(undefined)),
         cleanup: vi.fn().mockRejectedValue(new Error("Cleanup error"))
       };
 
-      pluginManager = new ExportPluginManager([]);
-      pluginManager.getPlugins().push(mockPlugin, failingPlugin);
+      pluginManager = new ExportPluginManager([mockPlugin, failingPlugin]);
 
       await expect(pluginManager.cleanup()).resolves.not.toThrow();
       expect(failingPlugin.cleanup).toHaveBeenCalled();
+      expect(mockPlugin.cleanup).toHaveBeenCalled();
     });
   });
 
@@ -289,7 +338,7 @@ describe("ExportPluginManager", () => {
     it("should enable silent mode", () => {
       pluginManager = new ExportPluginManager([]);
       pluginManager.setSilentMode(true);
-      expect;
+      expect(true).toBe(true); // No errors expected
     });
 
     it("should disable silent mode", () => {
@@ -300,7 +349,7 @@ describe("ExportPluginManager", () => {
   });
 });
 
-describe("FSPlugin", () => {
+describe("FileSystemPlugin", () => {
   let fsPlugin: FileSystemPlugin;
   let config: ExporterConfig;
 
@@ -344,6 +393,7 @@ describe("FSPlugin", () => {
         expect(true).toBe(false); // Should not reach here
       } catch (error) {
         expect(error).toBeDefined();
+        expect((error as Error).message).toBe("Permission denied");
       }
     });
   });
@@ -390,6 +440,7 @@ describe("FSPlugin", () => {
         expect(true).toBe(false);
       } catch (error) {
         expect(error).toBeDefined();
+        expect((error as Error).message).toBe("Disk full");
       }
     });
   });
@@ -423,6 +474,7 @@ describe("FSPlugin", () => {
         expect(true).toBe(false);
       } catch (error) {
         expect(error).toBeDefined();
+        expect((error as Error).message).toBe("Permission denied");
       }
     });
   });
@@ -609,7 +661,7 @@ describe("Plugin Registry Functions", () => {
 });
 
 describe("defaultPlugins", () => {
-  it("should include FSPlugin", () => {
+  it("should include FileSystemPlugin", () => {
     expect(defaultPlugins).toContain(FileSystemPlugin);
   });
 
@@ -619,14 +671,13 @@ describe("defaultPlugins", () => {
 });
 
 describe("Integration Tests", () => {
-  it("should work end-to-end with plugin manager and FSPlugin", async () => {
+  it("should work end-to-end with plugin manager and FileSystemPlugin", async () => {
     const config: ExporterConfig = {
       token: "test-token",
       outputDir: "./test-output"
     };
 
     const pluginManager = new ExportPluginManager([new FileSystemPlugin(config)]);
-    pluginManager.setSilentMode(true);
 
     // Test start event
     pluginManager.notify({ type: "start", config });
@@ -635,7 +686,7 @@ describe("Integration Tests", () => {
     const entity: NotionEntity = { id: "test-entity", type: "page" };
     pluginManager.notify({ type: "entity", entity });
 
-    // Test error event (should not log due to silent mode)
+    // Test error event
     const error = new Error("Test error");
     pluginManager.notify({ type: "error", error });
 
@@ -649,7 +700,7 @@ describe("Integration Tests", () => {
     pluginManager.notify({ type: "complete", summary });
 
     // Wait for async operations
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     // Cleanup
     await pluginManager.cleanup();
@@ -669,13 +720,12 @@ describe("Integration Tests", () => {
 
     const config: ExporterConfig = { token: "test-token", outputDir: "./test-output" };
     const pluginManager = new ExportPluginManager([new FileSystemPlugin(config), new TestPlugin()]);
-    pluginManager.setSilentMode(true);
 
     const entity: NotionEntity = { id: "test-entity", type: "page" };
     pluginManager.notify({ type: "entity", entity });
 
     // Wait for async operations
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     expect(pluginManager.getPlugins()).toHaveLength(2);
     expect(pluginManager.getPlugins()[0]).toBeInstanceOf(FileSystemPlugin);
@@ -692,7 +742,6 @@ describe("Integration Tests", () => {
     }
 
     const pluginManager = new ExportPluginManager([new ErrorPlugin()]);
-    pluginManager.setSilentMode(true);
 
     const config: ExporterConfig = { token: "test-token" };
     const entity: NotionEntity = { id: "test-entity", type: "page" };
@@ -705,7 +754,7 @@ describe("Integration Tests", () => {
     pluginManager.notify({ type: "complete", summary });
 
     // Wait for async operations
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     // Cleanup should not throw
     await expect(pluginManager.cleanup()).resolves.not.toThrow();
@@ -764,8 +813,79 @@ describe("Error Scenarios", () => {
   it("should handle edge cases in plugin initialization", () => {
     // Test with empty array and undefined plugins
     const pluginManager = new ExportPluginManager([]);
-    pluginManager.setSilentMode(true);
 
     expect(pluginManager.getPlugins()).toHaveLength(0);
+  });
+});
+
+describe("Additional Test Coverage", () => {
+  describe("Plugin event ordering", () => {
+    it("should process multiple plugins in order", async () => {
+      const executionOrder: string[] = [];
+
+      const plugin1: ExportPlugin = {
+        onExportStart: vi.fn().mockImplementation(() => {
+          executionOrder.push("plugin1-start");
+          return of(undefined);
+        }),
+        onEntity: vi.fn().mockReturnValue(of(undefined)),
+        onExportComplete: vi.fn().mockReturnValue(of(undefined)),
+        onError: vi.fn().mockReturnValue(of(undefined)),
+        cleanup: vi.fn().mockResolvedValue(undefined)
+      };
+
+      const plugin2: ExportPlugin = {
+        onExportStart: vi.fn().mockImplementation(() => {
+          executionOrder.push("plugin2-start");
+          return of(undefined);
+        }),
+        onEntity: vi.fn().mockReturnValue(of(undefined)),
+        onExportComplete: vi.fn().mockReturnValue(of(undefined)),
+        onError: vi.fn().mockReturnValue(of(undefined)),
+        cleanup: vi.fn().mockResolvedValue(undefined)
+      };
+
+      const pluginManager = new ExportPluginManager([plugin1, plugin2]);
+
+      const config: ExporterConfig = { token: "test-token" };
+      pluginManager.notify({ type: "start", config });
+
+      // Wait for async operations
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      expect(executionOrder).toEqual(["plugin1-start", "plugin2-start"]);
+    });
+  });
+
+  describe("FileSystemPlugin edge cases", () => {
+    beforeEach(async () => {
+      // Reset filesystem mocks to successful state
+      const fs = await import("fs/promises");
+      vi.mocked(fs.mkdir).mockResolvedValue(undefined);
+      vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+    });
+
+    it("should handle entities with special characters in IDs", async () => {
+      const fsPlugin = new FileSystemPlugin({ outputDir: "./test-output" });
+      const entity: NotionEntity = {
+        id: "test-id-with-special-chars-@#$%",
+        type: "page"
+      };
+
+      const result = await fsPlugin.onEntity(entity).toPromise();
+      expect(result).toBeUndefined();
+      expect(fsPlugin.getFileMap().has(entity.id)).toBe(true);
+    });
+
+    it("should handle deeply nested directory structures", async () => {
+      const fsPlugin = new FileSystemPlugin({ outputDir: "./very/deep/nested/output/directory" });
+      const entity: NotionEntity = {
+        id: "test-id",
+        type: "database"
+      };
+
+      const result = await fsPlugin.onEntity(entity).toPromise();
+      expect(result).toBeUndefined();
+    });
   });
 });

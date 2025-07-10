@@ -1,5 +1,4 @@
 import { firstValueFrom } from "rxjs";
-import { inspect } from "util";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ExportEventPayload, ExportSummary, ExporterConfig } from "../types";
 import { ExportStream } from "./export-stream";
@@ -46,15 +45,12 @@ describe("ExportStream", () => {
   describe("constructor", async () => {
     it("should initialize with provided config", () => {
       exportStream = new ExportStream(config);
-      console.log(inspect(exportStream, { colors: true, compact: false }));
       expect(exportStream).toBeDefined();
     });
 
     it("should emit start event on initialization", async () => {
       exportStream = new ExportStream(config);
-
       const event = await firstValueFrom(exportStream.onEvent());
-      console.log(inspect(event, { colors: true, compact: false }));
       // Since we're using ReplaySubject, the start event should be received immediately
       expect(event.type).toBe("start");
     });
@@ -63,10 +59,8 @@ describe("ExportStream", () => {
   describe("execute", () => {
     it("should process a single workspace when workspace is specified", (done) => {
       exportStream = new ExportStream(config);
-
       exportStream.execute().subscribe({
         next: (result: { success: boolean; summary: ExportSummary }) => {
-          console.log(inspect(result, { colors: true, compact: false }));
           expect(result.success).toBe(true);
           expect(result.summary).toBeDefined();
         }
@@ -80,7 +74,6 @@ describe("ExportStream", () => {
 
       exportStream.execute().subscribe({
         next: (result: { success: boolean; summary: ExportSummary }) => {
-          console.log(inspect(result, { colors: true, compact: false }));
           // Even with errors, it should return a result
           expect(result).toBeDefined();
           expect(result.summary).toBeDefined();
@@ -94,7 +87,6 @@ describe("ExportStream", () => {
 
       exportStream.execute().subscribe({
         next: (result: { success: boolean; summary: ExportSummary }) => {
-          console.log(inspect(result, { colors: true, compact: false }));
           expect(result.success).toBeDefined();
           expect(result.summary).toBeDefined();
         }
@@ -110,7 +102,6 @@ describe("ExportStream", () => {
       exportStream.onEvent().subscribe((event: ExportEventPayload) => {
         if (event.type === "progress") {
           progressEvents.push(event);
-          console.log(inspect(event, { colors: true, compact: false }));
         }
       });
 
@@ -119,7 +110,6 @@ describe("ExportStream", () => {
         complete: () => {
           // Progress events may not be emitted if there's no actual data
           // This is expected behavior
-          console.log(inspect({ progressEventCount: progressEvents.length }, { colors: true, compact: false }));
         }
       });
     });
@@ -128,10 +118,7 @@ describe("ExportStream", () => {
       exportStream = new ExportStream(config);
       let errorEmitted = false;
 
-      exportStream.onError().subscribe((error: Error) => {
-        console.log(inspect(error, { colors: true, compact: false }));
-        errorEmitted = true;
-      });
+      exportStream.onError().subscribe((error: Error) => {});
 
       // Create an artificial error scenario
       const errorConfig = { ...config, token: "" };
@@ -148,8 +135,6 @@ describe("ExportStream", () => {
       exportStream = new ExportStream(config);
 
       exportStream.onComplete().subscribe((summary: ExportSummary) => {
-        console.log(inspect(summary, { colors: true, compact: false }));
-        expect(summary).toBeDefined();
         expect(summary.successCount).toBeDefined();
         expect(summary.errorCount).toBeDefined();
       });
@@ -162,18 +147,14 @@ describe("ExportStream", () => {
   describe("stop and cleanup", () => {
     it("should stop the export process", () => {
       exportStream = new ExportStream(config);
-
       // No error should be thrown
       expect(() => exportStream.stop()).not.toThrow();
-      console.log(inspect({ stopCalled: true }, { colors: true, compact: false }));
     });
 
     it("should cleanup resources", async () => {
       exportStream = new ExportStream(config);
-
       // Cleanup should complete without errors
       await expect(exportStream.cleanup()).resolves.not.toThrow();
-      console.log(inspect({ cleanupCompleted: true }, { colors: true, compact: false }));
     });
   });
 
@@ -197,7 +178,6 @@ describe("ExportStream", () => {
       exportStream.execute().subscribe({
         complete: () => {
           // Plugin integration test passes if no errors
-          console.log(inspect({ pluginIntegrationTest: "passed" }, { colors: true, compact: false }));
         }
       });
     });
@@ -215,7 +195,6 @@ describe("ExportStream", () => {
       // Execute and check events were emitted
       exportStream.execute().subscribe({
         complete: () => {
-          console.log(inspect({ eventCount: events.length }, { colors: true, compact: false }));
           expect(events.length).toBeGreaterThan(0);
           expect(events.some((e) => e.type === "start")).toBe(true);
           subscription.unsubscribe();
@@ -227,16 +206,11 @@ describe("ExportStream", () => {
       exportStream = new ExportStream(config);
       const events1: ExportEventPayload[] = [];
       const events2: ExportEventPayload[] = [];
-
       exportStream.onEvent().subscribe((event: ExportEventPayload) => events1.push(event));
       exportStream.onEvent().subscribe((event: ExportEventPayload) => events2.push(event));
-
       // Both subscribers should receive the start event
       expect(events1.length).toBeGreaterThan(0);
       expect(events2.length).toBeGreaterThan(0);
-      console.log(
-        inspect({ subscriber1: events1.length, subscriber2: events2.length }, { colors: true, compact: false })
-      );
     });
   });
 });

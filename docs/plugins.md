@@ -1,22 +1,105 @@
-# Plugin System Documentation
+# Plugin System Architecture
+
+The NotionKit plugin system provides a flexible, event-driven architecture for extending the export functionality. The system uses RxJS observables for reactive programming and async/await for reliable error handling.
 
 ## Overview
 
-The NotionKit plugin system provides a robust, extensible architecture for processing Notion export data. It uses an event-driven pattern with RxJS observables to handle different stages of the export process.
+The plugin system consists of three main components:
 
-## Architecture
+1. **ExportPluginManager** - Coordinates plugin execution and event routing
+2. **ExportPlugin Interface** - Defines the contract all plugins must implement
+3. **Plugin Registry** - Manages global plugin registration and discovery
 
-### Core Components
+## Architecture Diagram
 
-1. **ExportPlugin Interface**: Defines the contract that all plugins must implement
-2. **ExportPluginManager**: Manages plugin lifecycle and event routing
-3. **Plugin Registry**: Global registry for managing available plugins
-4. **FSPlugin**: Built-in filesystem plugin for exporting data to files
+```mermaid
+graph TB
+    subgraph "Plugin System Architecture"
+        ES[ExportStream] --> EPM[ExportPluginManager]
+        EPM --> |Event Routing| ES_Subject[EventStream Subject]
+        ES_Subject --> |Async Handler| AEH[AsyncEventHandler]
+        
+        subgraph "Plugin Manager Core"
+            EPM --> |Manages| Plugins[Plugin Instances]
+            EPM --> |Silent Mode| SM[Silent Mode Control]
+            EPM --> |Cleanup| CM[Cleanup Manager]
+        end
+        
+        subgraph "Event Types"
+            AEH --> |start| SE[Start Event]
+            AEH --> |entity| EE[Entity Event]
+            AEH --> |error| ERE[Error Event]
+            AEH --> |complete| CE[Complete Event]
+            AEH --> |progress| PE[Progress Event - Ignored]
+        end
+        
+        subgraph "Plugin Interface"
+            Plugins --> |implements| EPI[ExportPlugin Interface]
+            EPI --> |onExportStart| OSM[Observable Start Method]
+            EPI --> |onEntity| OEM[Observable Entity Method]
+            EPI --> |onExportComplete| OCM[Observable Complete Method]
+            EPI --> |onError| OERM[Observable Error Method]
+            EPI --> |cleanup| CLM[Cleanup Method]
+        end
+        
+        subgraph "Built-in Plugins"
+            FSP[FileSystemPlugin] --> |implements| EPI
+            FSP --> |writes to| FS[File System]
+            FSP --> |tracks| FM[File Map]
+            FSP --> |counts| AEC[Active Entity Count]
+        end
+        
+        subgraph "Plugin Registry"
+            PR[Plugin Registry] --> |stores| PC[Plugin Classes]
+            PR --> |manages| CMD[Commands]
+            PR --> |provides| API[Registry API]
+            API --> |register| REG[registerPlugin]
+            API --> |get| GET[getPlugin]
+            API --> |unregister| UNREG[unregisterPlugin]
+            API --> |clear| CLR[clearPlugins]
+        end
+        
+        subgraph "RxJS Integration"
+            OSM --> |uses| RxJS[RxJS Observables]
+            OEM --> |uses| RxJS
+            OCM --> |uses| RxJS
+            OERM --> |uses| RxJS
+            RxJS --> |operators| OPS[from, map, tap, catchError]
+        end
+    end
+    
+    style EPM fill:#e1f5fe
+    style FSP fill:#f3e5f5
+    style PR fill:#e8f5e8
+    style RxJS fill:#fff3e0
+```
 
-### Plugin Interface
+## Core Components
+
+### ExportPluginManager
+
+The central coordinator that manages plugin lifecycle and event routing.
+
+**Key Features:**
+
+- **Simplified Event Handling**: Uses async/await instead of complex RxJS merge patterns
+- **Error Resilience**: Plugin errors don't stop other plugins from executing
+- **Silent Mode**: Automatic silence during testing to prevent log spam
+- **Promise.allSettled**: Ensures all plugins complete even if some fail
+
+**Event Flow:**
+
+1. Events are published to an internal RxJS Subject
+2. The event handler processes events asynchronously
+3. Each event type is routed to the appropriate plugin methods
+4. All plugins are called in parallel using Promise.allSettled
+
+### ExportPlugin Interface
+
+Defines the contract that all plugins must implement:
 
 ```typescript
-interface ExportPlugin {
+export interface ExportPlugin {
   onExportStart(config: ExporterConfig): Observable<void>;
   onEntity(entity: NotionEntity): Observable<void>;
   onExportComplete(summary: ExportSummary): Observable<void>;
@@ -25,48 +108,158 @@ interface ExportPlugin {
 }
 ```
 
-### Event Types
+**RxJS Integration:**
 
-The plugin system handles the following event types:
+- All plugin methods return RxJS Observables
+- Uses `from()` to convert Promises to Observables
+- Leverages `map()`, `tap()`, and `catchError()` operators
+- Simplified Observable creation vs manual subscriber handling
 
-- **start**: Emitted when export begins
-- **entity**: Emitted for each Notion entity processed
-- **error**: Emitted when an error occurs
-- **complete**: Emitted when export finishes
-- **progress**: Emitted to track progress (not handled by plugins directly)
+### FileSystemPlugin
 
-## Usage
+The built-in plugin for writing exported data to the filesystem.
 
-### Basic Plugin Creation
+**Features:**
+
+- **Reactive File Operations**: Uses RxJS observables for all I/O
+- **Directory Management**: Automatically creates nested directories
+- **Entity Tracking**: Maintains maps of processed entities
+- **Error Handling**: Graceful error handling with proper logging
+- **Silent Mode**: Respects test environment settings
+
+**File Organization:**
+
+```
+output-dir/
+├── page/
+│   ├── entity-1.json
+│   └── entity-2.json
+├── block/
+│   ├── block-1.json
+│   └── block-2.json
+└── export-summary.json
+```
+
+## RxJS Usage Patterns
+
+### Simplified Observable Creation
+
+**Before (Complex):**
 
 ```typescript
-import { ExportPlugin } from "@mateothegreat/notion-sync";
-import { Observable, of } from "rxjs";
+return new Observable<void>((subscriber) => {
+  fs.writeFile(path, data)
+    .then(() => {
+      subscriber.next();
+      subscriber.complete();
+    })
+    .catch((error) => {
+      subscriber.error(error);
+    });
+});
+```
 
-class MyCustomPlugin implements ExportPlugin {
+**After (Simplified):**
+
+```typescript
+return from(fs.writeFile(path, data)).pipe(
+  map((): void => undefined),
+  catchError((error) => {
+    if (!this.silent) {
+      log.error("Error context", error);
+    }
+    throw error;
+  })
+);
+```
+
+### Event Handling Simplification
+
+**Before (Complex RxJS):**
+
+```typescript
+this.eventStream$.pipe(
+  mergeMap((payload) => {
+    return merge(...plugins.map(plugin => 
+      plugin.method(payload).pipe(catchError(handleError))
+    )).pipe(toArray(), map(() => undefined));
+  })
+).subscribe();
+```
+
+**After (Async/Await):**
+
+```typescript
+this.eventStream$.subscribe({
+  next: (payload) => {
+    this.handleEventAsync(payload).catch(handleError);
+  }
+});
+
+private async handleEventAsync(payload: ExportEventPayload): Promise<void> {
+  const promises = this.plugins.map(plugin => 
+    plugin.method(payload).toPromise().catch(handleError)
+  );
+  await Promise.allSettled(promises);
+}
+```
+
+## Plugin Development Guide
+
+### Creating a Custom Plugin
+
+```typescript
+export class CustomPlugin implements ExportPlugin {
+  private silent = process.env.NODE_ENV === "test";
+
   onExportStart(config: ExporterConfig): Observable<void> {
-    console.log("Export started with config:", config);
-    return of(undefined);
+    return of(undefined).pipe(
+      tap(() => {
+        if (!this.silent) {
+          log.info("Custom plugin started");
+        }
+      })
+    );
   }
 
   onEntity(entity: NotionEntity): Observable<void> {
-    console.log("Processing entity:", entity.id, entity.type);
-    // Process the entity here
-    return of(undefined);
+    return from(this.processEntity(entity)).pipe(
+      map((): void => undefined),
+      catchError((error) => {
+        if (!this.silent) {
+          log.error("Custom plugin entity error", error);
+        }
+        throw error;
+      })
+    );
   }
 
   onExportComplete(summary: ExportSummary): Observable<void> {
-    console.log("Export completed:", summary);
-    return of(undefined);
+    return of(undefined).pipe(
+      tap(() => {
+        if (!this.silent) {
+          log.success("Custom plugin completed");
+        }
+      })
+    );
   }
 
   onError(error: Error): Observable<void> {
-    console.error("Export error:", error);
-    return of(undefined);
+    return of(undefined).pipe(
+      tap(() => {
+        if (!this.silent) {
+          log.error("Custom plugin error", error);
+        }
+      })
+    );
   }
 
   async cleanup(): Promise<void> {
-    console.log("Cleaning up plugin resources");
+    // Clean up resources
+  }
+
+  private async processEntity(entity: NotionEntity): Promise<void> {
+    // Custom processing logic
   }
 }
 ```
@@ -74,232 +267,125 @@ class MyCustomPlugin implements ExportPlugin {
 ### Plugin Registration
 
 ```typescript
-import { registerPlugin, initPluginSystem } from "@mateothegreat/notion-sync";
+// Register a plugin globally
+registerPlugin(new CustomPlugin());
 
-// Initialize the plugin system
-initPluginSystem([]);
+// Get a registered plugin
+const PluginClass = getPlugin("CustomPlugin");
 
-// Register a plugin instance
-const myPlugin = new MyCustomPlugin();
-registerPlugin(myPlugin);
-
-// Or register by class
-import { getAllPlugins } from "@mateothegreat/notion-sync";
-const registry = getAllPlugins();
-registry.set("my-plugin", MyCustomPlugin);
-```
-
-### Using Plugins with ExportPluginManager
-
-```typescript
-import { ExportPluginManager, FSPlugin } from "@mateothegreat/notion-sync";
-
-// Create plugin manager with plugin classes
+// Use in export stream
 const pluginManager = new ExportPluginManager([
-  FSPlugin,
-  MyCustomPlugin
+  new FileSystemPlugin(config),
+  new CustomPlugin()
 ]);
-
-// Notify plugins of events
-pluginManager.notify({ type: "start", config });
-pluginManager.notify({ type: "entity", entity });
-pluginManager.notify({ type: "error", error });
-pluginManager.notify({ type: "complete", summary });
-
-// Cleanup when done
-await pluginManager.cleanup();
 ```
 
-## Built-in Plugins
+## Testing
 
-### FSPlugin
+### Test Structure
 
-The filesystem plugin exports entities to JSON files on disk.
+The plugin system includes comprehensive test coverage:
 
-**Features:**
+- **Unit Tests**: Individual plugin and manager functionality
+- **Integration Tests**: End-to-end plugin workflows
+- **Error Scenarios**: Plugin failure handling
+- **Edge Cases**: Special characters, nested directories, etc.
 
-- Creates directory structure by entity type
-- Writes entities as JSON files
-- Generates export summary file
-- Handles file system errors gracefully
-
-**Configuration:**
+### Mock Setup
 
 ```typescript
-const fsPlugin = new FSPlugin({
-  outputDir: "./my-export",
-  // other config options
+// Mock filesystem operations
+vi.mock("fs/promises", () => ({
+  mkdir: vi.fn().mockResolvedValue(undefined),
+  writeFile: vi.fn().mockResolvedValue(undefined)
+}));
+
+// Mock logging to prevent test output
+vi.mock("../utils/logging", () => ({
+  log: {
+    info: vi.fn(),
+    error: vi.fn(),
+    success: vi.fn()
+  }
+}));
+```
+
+### Test Patterns
+
+```typescript
+it("should handle plugin errors gracefully", async () => {
+  const failingPlugin = {
+    onExportStart: vi.fn().mockReturnValue(throwError(() => new Error("Plugin error"))),
+    // ... other methods
+  };
+
+  const pluginManager = new ExportPluginManager([failingPlugin]);
+  
+  pluginManager.notify({ type: "start", config });
+  
+  // Wait for async operations
+  await new Promise(resolve => setTimeout(resolve, 50));
+  
+  expect(failingPlugin.onExportStart).toHaveBeenCalled();
+  // Plugin error should not crash the system
 });
 ```
 
-**File Structure:**
+## Performance Considerations
 
-```
-my-export/
-├── page/
-│   ├── entity-id-1.json
-│   └── entity-id-2.json
-├── block/
-│   ├── block-id-1.json
-│   └── block-id-2.json
-└── export-summary.json
-```
+### Async Event Processing
 
-## Error Handling
+- Events are processed asynchronously to prevent blocking
+- Uses `Promise.allSettled()` to ensure all plugins complete
+- Error in one plugin doesn't affect others
 
-The plugin system implements robust error handling:
+### Memory Management
 
-1. **Plugin Initialization Errors**: Logged and isolated - failing plugins won't crash the system
-2. **Event Handler Errors**: Caught and logged - other plugins continue processing
-3. **Cleanup Errors**: Handled gracefully during shutdown
+- Plugin manager cleans up resources on shutdown
+- File maps are cleared during cleanup
+- Observable subscriptions are properly disposed
 
-```typescript
-// Error handling in plugins
-onEntity(entity: NotionEntity): Observable<void> {
-  return new Observable<void>((subscriber) => {
-    try {
-      // Process entity
-      subscriber.next();
-      subscriber.complete();
-    } catch (error) {
-      subscriber.error(error);
-    }
-  });
-}
-```
+### Error Handling
 
-## Advanced Features
+- Silent mode prevents log spam during testing
+- Errors are logged but don't crash the system
+- Individual plugin failures are isolated
 
-### Asynchronous Processing
+## Configuration
 
-Plugins can perform asynchronous operations using RxJS observables:
+### Environment Variables
+
+- `NODE_ENV=test` or `VITEST=true` enables silent mode
+- Prevents logging during test execution
+- Maintains clean test output
+
+### Plugin Manager Options
 
 ```typescript
-onEntity(entity: NotionEntity): Observable<void> {
-  return new Observable<void>((subscriber) => {
-    // Async operation
-    processEntityAsync(entity)
-      .then(() => {
-        subscriber.next();
-        subscriber.complete();
-      })
-      .catch(error => subscriber.error(error));
-  });
-}
-```
+const pluginManager = new ExportPluginManager([
+  new FileSystemPlugin({
+    outputDir: "./custom-output",
+    // ... other options
+  })
+]);
 
-### Plugin Communication
-
-Plugins can communicate through the event system:
-
-```typescript
-class LoggerPlugin implements ExportPlugin {
-  private processedCount = 0;
-
-  onEntity(entity: NotionEntity): Observable<void> {
-    this.processedCount++;
-    if (this.processedCount % 100 === 0) {
-      console.log(`Processed ${this.processedCount} entities`);
-    }
-    return of(undefined);
-  }
-}
-```
-
-### Configuration Management
-
-Plugins can access configuration through the export start event:
-
-```typescript
-class ConfigurablePlugin implements ExportPlugin {
-  private config: ExporterConfig;
-
-  onExportStart(config: ExporterConfig): Observable<void> {
-    this.config = config;
-    console.log("Debug mode:", config.debug);
-    return of(undefined);
-  }
-}
-```
-
-## Plugin Registry API
-
-The plugin system provides a global registry for managing plugins:
-
-```typescript
-// Initialize system
-initPluginSystem(commands);
-
-// Register plugin
-registerPlugin(pluginInstance);
-
-// Get plugin
-const plugin = getPlugin("plugin-name");
-
-// Get all plugins
-const allPlugins = getAllPlugins();
-
-// Unregister plugin
-unregisterPlugin("plugin-name");
-
-// Clear all plugins
-clearPlugins();
+// Configure silent mode
+pluginManager.setSilentMode(true);
 ```
 
 ## Best Practices
 
-1. **Error Handling**: Always handle errors gracefully in plugin methods
-2. **Resource Cleanup**: Implement proper cleanup in the `cleanup()` method
-3. **Logging**: Use meaningful log messages for debugging
-4. **Configuration**: Make plugins configurable through the export config
-5. **Testing**: Write comprehensive tests for plugin functionality
+1. **Error Handling**: Always handle errors gracefully in plugins
+2. **Silent Mode**: Respect the silent mode flag in custom plugins
+3. **Resource Cleanup**: Implement proper cleanup in the cleanup method
+4. **Observable Patterns**: Use RxJS operators for cleaner code
+5. **Testing**: Write comprehensive tests for custom plugins
+6. **Logging**: Use the logging utility for consistent output
 
-## Testing
+## Future Enhancements
 
-The plugin system includes comprehensive test coverage:
-
-```typescript
-import { describe, it, expect, vi } from "vitest";
-import { ExportPluginManager, FSPlugin } from "@mateothegreat/notion-sync";
-
-describe("MyPlugin", () => {
-  it("should process entities correctly", () => {
-    const plugin = new MyPlugin();
-    const entity = { id: "test", type: "page" };
-    
-    return new Promise<void>((resolve) => {
-      plugin.onEntity(entity).subscribe({
-        complete: () => {
-          expect(true).toBe(true);
-          resolve();
-        }
-      });
-    });
-  });
-});
-```
-
-## Integration with Export Stream
-
-The plugin system integrates seamlessly with the export stream:
-
-```typescript
-import { ExportStream } from "@mateothegreat/notion-sync";
-
-const exportStream = new ExportStream({
-  token: "your-token",
-  outputDir: "./export",
-  plugins: [FSPlugin] // Plugins are automatically managed
-});
-
-// Execute export - plugins are notified of all events
-const result = await exportStream.execute().toPromise();
-```
-
-## Conclusion
-
-The plugin system provides a powerful, extensible architecture for processing Notion export data. It handles errors gracefully, supports asynchronous operations, and provides a clean API for plugin development. The built-in FSPlugin serves as both a useful default and a reference implementation for creating custom plugins.
-
-## Examples
-
-For more examples and plugin templates, see the `/examples` directory in the project repository.
+1. **Plugin Discovery**: Automatic plugin loading from npm packages
+2. **Plugin Configuration**: Per-plugin configuration options
+3. **Plugin Dependencies**: Plugin dependency resolution
+4. **Plugin Hooks**: Additional lifecycle hooks for fine-grained control
+5. **Plugin Validation**: Runtime validation of plugin implementations

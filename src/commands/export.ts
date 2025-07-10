@@ -1,5 +1,6 @@
+import { log } from "$lib/utils/logging";
 import { Command, Flags } from "@oclif/core";
-import chalk from "chalk";
+import { blue, bold, green, red } from "ansis";
 import ora from "ora";
 import { createExportStream } from "../index";
 import { ExportStream } from "../lib/services/export-stream";
@@ -162,7 +163,8 @@ export default class Export extends Command {
       }
     } catch (error: any) {
       spinner.fail(`Export failed: ${error.message}`);
-      this.error(error);
+      log.error("Export failed", error);
+      this.exit(1);
     } finally {
       if (progressInterval) {
         clearInterval(progressInterval);
@@ -175,25 +177,18 @@ export default class Export extends Command {
    * Display export summary.
    */
   private displaySummary(summary: ExportSummary): void {
-    this.log("\n" + chalk.bold("Export Summary:"));
-    this.log(chalk.green(`✓ Successful: ${summary.successCount}`));
+    log.info(bold("Export Summary:"));
+    log.success(green(`✓ Successful: ${summary.successCount}`));
 
     if (summary.errorCount > 0) {
-      this.log(chalk.red(`✗ Errors: ${summary.errorCount}`));
+      log.error(red(`✗ Errors: ${summary.errorCount}`));
     }
-
-    this.log(chalk.blue(`⏱ Duration: ${(summary.duration / 1000).toFixed(2)}s`));
 
     if (Object.keys(summary.processedTypes).length > 0) {
-      this.log("\n" + chalk.bold("Processed Types:"));
       Object.entries(summary.processedTypes).forEach(([type, count]) => {
-        this.log(`  ${type}: ${count}`);
+        log.info(`  + processed ${type}: ${count}`);
       });
     }
-
-    if (summary.lastError) {
-      this.log("\n" + chalk.red("Last Error:"));
-      this.log(chalk.red(`  ${summary.lastError.message}`));
-    }
+    log.info(blue(`completed in ${(summary.duration / 1000).toFixed(2)}s`));
   }
 }

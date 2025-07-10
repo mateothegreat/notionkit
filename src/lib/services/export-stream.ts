@@ -201,9 +201,7 @@ export class ExportStream {
   // Private helper methods
   private setupEventListeners(): void {
     this.events$.subscribe((payload) => {
-      if (this.config.debug) {
-        console.log(`[ExportStream] Event: ${payload.type}`);
-      }
+      console.log(`[ExportStream] Event: ${payload.type}`);
     });
   }
 

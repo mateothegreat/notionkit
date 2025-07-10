@@ -1,6 +1,5 @@
 import { EventEmitter } from "events";
 import { Subject } from "rxjs";
-import { inspect } from "util";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { ExportSummary } from "../types";
 import { PerformanceTracker, fromEvent, rxjsCompatibleEventEmitter, toEventEmitter } from "./index";
@@ -17,7 +16,6 @@ describe("PerformanceTracker", () => {
       tracker.recordSuccess();
       tracker.recordSuccess();
       const summary = tracker.getSummary();
-      console.log(inspect(summary, { colorize: true, compact: false }));
       expect(summary.successCount).toBe(2);
     });
   });
@@ -27,7 +25,6 @@ describe("PerformanceTracker", () => {
       tracker.recordError();
       tracker.recordError();
       const summary = tracker.getSummary();
-      console.log(inspect(summary, { colorize: true, compact: false }));
       expect(summary.errorCount).toBe(2);
     });
 
@@ -37,14 +34,12 @@ describe("PerformanceTracker", () => {
       tracker.recordError(error1);
       tracker.recordError(error2);
       const summary = tracker.getSummary();
-      console.log(inspect(summary, { colorize: true, compact: false }));
       expect(summary.lastError).toBe(error2);
     });
 
     it("should not require error parameter", () => {
       tracker.recordError();
       const summary = tracker.getSummary();
-      console.log(inspect(summary, { colorize: true, compact: false }));
       expect(summary.errorCount).toBe(1);
       expect(summary.lastError).toBeUndefined();
     });
@@ -56,7 +51,6 @@ describe("PerformanceTracker", () => {
       tracker.recordTypeProcessed("page");
       tracker.recordTypeProcessed("block");
       const summary = tracker.getSummary();
-      console.log(inspect(summary, { colorize: true, compact: false }));
       expect(summary.processedTypes.page).toBe(2);
       expect(summary.processedTypes.block).toBe(1);
     });
@@ -64,7 +58,6 @@ describe("PerformanceTracker", () => {
     it("should initialize type count if not exists", () => {
       tracker.recordTypeProcessed("database");
       const summary = tracker.getSummary();
-      console.log(inspect(summary, { colorize: true, compact: false }));
       expect(summary.processedTypes.database).toBe(1);
     });
   });
@@ -79,7 +72,6 @@ describe("PerformanceTracker", () => {
       tracker.recordTypeProcessed("block");
 
       const summary = tracker.getSummary();
-      console.log(inspect(summary, { colorize: true, compact: false }));
 
       expect(summary.successCount).toBe(2);
       expect(summary.errorCount).toBe(1);
@@ -93,7 +85,6 @@ describe("PerformanceTracker", () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       const summary = tracker.getSummary();
-      console.log(inspect(summary, { colorize: true, compact: false }));
       expect(summary.duration).toBeGreaterThanOrEqual(100);
     });
   });
@@ -110,7 +101,6 @@ describe("PerformanceTracker", () => {
         summaries.push(summary);
       });
 
-      console.log(inspect(summaries, { colorize: true, compact: false }));
       expect(summaries).toHaveLength(1);
       expect(summaries[0].successCount).toBe(1);
       expect(summaries[0].errorCount).toBe(1);
@@ -131,7 +121,6 @@ describe("fromEvent", () => {
     emitter.emit("test", "value1");
     emitter.emit("test", "value2");
 
-    console.log(inspect(values, { colorize: true, compact: false }));
     expect(values).toEqual(["value1", "value2"]);
 
     subscription.unsubscribe();
@@ -149,7 +138,6 @@ describe("fromEvent", () => {
 
     emitter.emit("test", "value");
 
-    console.log(inspect({ values1, values2 }, { colorize: true, compact: false }));
     expect(values1).toEqual(["value"]);
     expect(values2).toEqual(["value"]);
 
@@ -170,7 +158,6 @@ describe("fromEvent", () => {
     subscription.unsubscribe();
     emitter.emit("test", "value2");
 
-    console.log(inspect(values, { colorize: true, compact: false }));
     expect(values).toEqual(["value1"]);
   });
 
@@ -186,7 +173,6 @@ describe("fromEvent", () => {
 
     emitter.emit(eventSymbol, "symbol-value");
 
-    console.log(inspect(values, { colorize: true, compact: false }));
     expect(values).toEqual(["symbol-value"]);
 
     subscription.unsubscribe();
@@ -206,7 +192,6 @@ describe("toEventEmitter", () => {
     subject.next("value1");
     subject.next("value2");
 
-    console.log(inspect(values, { colorize: true, compact: false }));
     expect(values).toEqual(["value1", "value2"]);
 
     unsubscribe();
@@ -225,7 +210,6 @@ describe("toEventEmitter", () => {
     unsubscribe();
     subject.next("value2");
 
-    console.log(inspect(values, { colorize: true, compact: false }));
     expect(values).toEqual(["value1"]);
   });
 
@@ -243,7 +227,6 @@ describe("toEventEmitter", () => {
     subject.next("value1");
     subject.error(new Error("Test error"));
 
-    console.log(inspect({ values, errors }, { colorize: true, compact: false }));
     expect(values).toEqual(["value1"]);
     expect(errors).toHaveLength(1);
     expect(errors[0].message).toBe("Test error");
@@ -255,7 +238,6 @@ describe("rxjsCompatibleEventEmitter", () => {
     const emitter = new EventEmitter();
     const result = rxjsCompatibleEventEmitter(emitter);
 
-    console.log(inspect({ same: result === emitter }, { colorize: true, compact: false }));
     expect(result).toBe(emitter);
   });
 
@@ -271,7 +253,6 @@ describe("rxjsCompatibleEventEmitter", () => {
     compatibleEmitter.emit("test", "value1");
     compatibleEmitter.emit("test", "value2");
 
-    console.log(inspect(values, { colorize: true, compact: false }));
     expect(values).toEqual(["value1", "value2"]);
   });
 });

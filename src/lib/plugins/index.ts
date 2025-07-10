@@ -242,9 +242,7 @@ export class FileSystemPlugin implements ExportPlugin {
     const outputDir = config.outputDir || "./notion-export";
     return from(fs.mkdir(outputDir, { recursive: true })).pipe(
       tap(() => {
-        if (!this.silent) {
-          log.info(`FileSystemPlugin initialized with output directory: ${outputDir}`);
-        }
+        log.info(`FileSystemPlugin initialized with output directory: ${outputDir}`);
       }),
       catchError((error) => {
         if (!this.silent) {
