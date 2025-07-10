@@ -4,7 +4,7 @@ import type { ExportEventPayload, ExportSummary, ExporterConfig, NotionEntity } 
 import {
   ExportPlugin,
   ExportPluginManager,
-  FSPlugin,
+  FileSystemPlugin,
   clearPlugins,
   defaultPlugins,
   getAllPlugins,
@@ -301,7 +301,7 @@ describe("ExportPluginManager", () => {
 });
 
 describe("FSPlugin", () => {
-  let fsPlugin: FSPlugin;
+  let fsPlugin: FileSystemPlugin;
   let config: ExporterConfig;
 
   beforeEach(() => {
@@ -309,12 +309,12 @@ describe("FSPlugin", () => {
       token: "test-token",
       outputDir: "./test-output"
     };
-    fsPlugin = new FSPlugin(config);
+    fsPlugin = new FileSystemPlugin(config);
   });
 
   describe("constructor", () => {
     it("should initialize with default config", () => {
-      const defaultPlugin = new FSPlugin();
+      const defaultPlugin = new FileSystemPlugin();
       expect(defaultPlugin).toBeDefined();
     });
 
@@ -323,7 +323,7 @@ describe("FSPlugin", () => {
     });
 
     it("should enable silent mode during testing", () => {
-      const plugin = new FSPlugin();
+      const plugin = new FileSystemPlugin();
       plugin.setSilentMode(true);
       expect(true).toBe(true); // No errors expected
     });
@@ -471,7 +471,7 @@ describe("FSPlugin", () => {
     });
 
     it("should use default output dir when none provided", () => {
-      const defaultPlugin = new FSPlugin();
+      const defaultPlugin = new FileSystemPlugin();
       const entity: NotionEntity = { id: "test-id", type: "database" };
       const path = defaultPlugin["getPathForEntity"](entity);
 
@@ -546,7 +546,7 @@ describe("Plugin Registry Functions", () => {
       const fsPlugin = getPlugin("fs");
 
       expect(fsPlugin).toBeDefined();
-      expect(fsPlugin).toBe(FSPlugin);
+      expect(fsPlugin).toBe(FileSystemPlugin);
     });
 
     it("should return undefined for non-existent plugin", () => {
@@ -610,7 +610,7 @@ describe("Plugin Registry Functions", () => {
 
 describe("defaultPlugins", () => {
   it("should include FSPlugin", () => {
-    expect(defaultPlugins).toContain(FSPlugin);
+    expect(defaultPlugins).toContain(FileSystemPlugin);
   });
 
   it("should have expected length", () => {
@@ -625,7 +625,7 @@ describe("Integration Tests", () => {
       outputDir: "./test-output"
     };
 
-    const pluginManager = new ExportPluginManager([new FSPlugin(config)]);
+    const pluginManager = new ExportPluginManager([new FileSystemPlugin(config)]);
     pluginManager.setSilentMode(true);
 
     // Test start event
@@ -655,7 +655,7 @@ describe("Integration Tests", () => {
     await pluginManager.cleanup();
 
     expect(pluginManager.getPlugins()).toHaveLength(1);
-    expect(pluginManager.getPlugins()[0]).toBeInstanceOf(FSPlugin);
+    expect(pluginManager.getPlugins()[0]).toBeInstanceOf(FileSystemPlugin);
   });
 
   it("should handle multiple plugin types together", async () => {
@@ -668,7 +668,7 @@ describe("Integration Tests", () => {
     }
 
     const config: ExporterConfig = { token: "test-token", outputDir: "./test-output" };
-    const pluginManager = new ExportPluginManager([new FSPlugin(config), new TestPlugin()]);
+    const pluginManager = new ExportPluginManager([new FileSystemPlugin(config), new TestPlugin()]);
     pluginManager.setSilentMode(true);
 
     const entity: NotionEntity = { id: "test-entity", type: "page" };
@@ -678,7 +678,7 @@ describe("Integration Tests", () => {
     await new Promise((resolve) => setTimeout(resolve, 200));
 
     expect(pluginManager.getPlugins()).toHaveLength(2);
-    expect(pluginManager.getPlugins()[0]).toBeInstanceOf(FSPlugin);
+    expect(pluginManager.getPlugins()[0]).toBeInstanceOf(FileSystemPlugin);
     expect(pluginManager.getPlugins()[1]).toBeInstanceOf(TestPlugin);
   });
 
@@ -691,7 +691,7 @@ describe("Integration Tests", () => {
       cleanup = vi.fn().mockRejectedValue(new Error("Cleanup error"));
     }
 
-    const pluginManager = new ExportPluginManager([ErrorPlugin]);
+    const pluginManager = new ExportPluginManager([new ErrorPlugin()]);
     pluginManager.setSilentMode(true);
 
     const config: ExporterConfig = { token: "test-token" };
@@ -734,7 +734,7 @@ describe("Integration Tests", () => {
     expect(allPlugins.size).toBeGreaterThan(1); // fs + custom plugin
 
     // Create plugin manager with registered plugins
-    const pluginManager = new ExportPluginManager([FSPlugin]);
+    const pluginManager = new ExportPluginManager([new FileSystemPlugin()]);
     expect(pluginManager.getPlugins()).toHaveLength(1);
   });
 });
@@ -745,7 +745,7 @@ describe("Error Scenarios", () => {
     vi.mocked(fs.mkdir).mockRejectedValue(new Error("Permission denied"));
     vi.mocked(fs.writeFile).mockRejectedValue(new Error("Disk full"));
 
-    const fsPlugin = new FSPlugin({ outputDir: "./test-output" });
+    const fsPlugin = new FileSystemPlugin({ outputDir: "./test-output" });
     fsPlugin.setSilentMode(true);
 
     const config: ExporterConfig = { token: "test-token", outputDir: "./test-output" };

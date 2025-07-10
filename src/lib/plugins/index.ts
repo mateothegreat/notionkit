@@ -1,9 +1,10 @@
 import type { Command } from "@oclif/core";
 import * as fs from "fs/promises";
 import * as path from "path";
-import { from, merge, Observable, of, Subject } from "rxjs";
-import { catchError, map, mergeMap, toArray } from "rxjs/operators";
+import { from, Observable, of, Subject } from "rxjs";
+import { catchError, map, tap } from "rxjs/operators";
 import type { ExporterConfig, ExportEventPayload, ExportSummary, NotionEntity } from "../types";
+import { log } from "../utils/logging";
 
 /**
  * Export plugin interface that all plugins must implement.
@@ -72,108 +73,112 @@ export class ExportPluginManager {
    * Setup event routing to plugins.
    */
   private setupEventRouting(): void {
-    this.eventStream$
-      .pipe(
-        mergeMap((payload) => {
-          switch (payload.type) {
-            case "start":
-              return this.handleStart(payload.config);
-            case "entity":
-              return this.handleEntity(payload.entity);
-            case "error":
-              return this.handleError(payload.error);
-            case "complete":
-              return this.handleComplete(payload.summary);
-            default:
-              return of(undefined);
+    this.eventStream$.subscribe({
+      next: (payload) => {
+        // Handle events asynchronously without blocking
+        this.handleEventAsync(payload).catch((error) => {
+          if (!this.silent) {
+            log.error("ExportPluginManager:eventHandling", error);
           }
-        })
-      )
-      .subscribe();
+        });
+      },
+      error: (error) => {
+        if (!this.silent) {
+          log.error("ExportPluginManager:eventStream", error);
+        }
+      }
+    });
+  }
+
+  /**
+   * Handle events asynchronously.
+   */
+  private async handleEventAsync(payload: ExportEventPayload): Promise<void> {
+    switch (payload.type) {
+      case "start":
+        await this.handleStart(payload.config);
+        break;
+      case "entity":
+        await this.handleEntity(payload.entity);
+        break;
+      case "error":
+        await this.handleError(payload.error);
+        break;
+      case "complete":
+        await this.handleComplete(payload.summary);
+        break;
+      default:
+        // Ignore unknown event types
+        break;
+    }
   }
 
   /**
    * Handle export start event.
    */
-  private handleStart(config: ExporterConfig): Observable<void> {
-    return merge(
-      ...this.plugins.map((plugin) =>
-        from(plugin.onExportStart(config)).pipe(
-          catchError((error) => {
-            if (!this.silent) {
-              console.error("Plugin error in onExportStart:", error);
-            }
-            return of(undefined);
-          })
-        )
-      )
-    ).pipe(
-      toArray(),
-      map((): void => undefined)
+  private async handleStart(config: ExporterConfig): Promise<void> {
+    const promises = this.plugins.map((plugin) =>
+      plugin
+        .onExportStart(config)
+        .toPromise()
+        .catch((error) => {
+          if (!this.silent) {
+            log.error("ExportPluginManager:handleStart", error);
+          }
+        })
     );
+    await Promise.allSettled(promises);
   }
 
   /**
    * Handle entity event.
    */
-  private handleEntity(entity: NotionEntity): Observable<void> {
-    return merge(
-      ...this.plugins.map((plugin) =>
-        from(plugin.onEntity(entity)).pipe(
-          catchError((error) => {
-            if (!this.silent) {
-              console.error("Plugin error in onEntity:", error);
-            }
-            return of(undefined);
-          })
-        )
-      )
-    ).pipe(
-      toArray(),
-      map((): void => undefined)
+  private async handleEntity(entity: NotionEntity): Promise<void> {
+    const promises = this.plugins.map((plugin) =>
+      plugin
+        .onEntity(entity)
+        .toPromise()
+        .catch((error) => {
+          if (!this.silent) {
+            log.error("ExportPluginManager:handleEntity", error);
+          }
+        })
     );
+    await Promise.allSettled(promises);
   }
 
   /**
    * Handle error event.
    */
-  private handleError(error: Error): Observable<void> {
-    return merge(
-      ...this.plugins.map((plugin) =>
-        from(plugin.onError(error)).pipe(
-          catchError((err) => {
-            if (!this.silent) {
-              console.error("Plugin error in onError:", err);
-            }
-            return of(undefined);
-          })
-        )
-      )
-    ).pipe(
-      toArray(),
-      map((): void => undefined)
+  private async handleError(error: Error): Promise<void> {
+    const promises = this.plugins.map((plugin) =>
+      plugin
+        .onError(error)
+        .toPromise()
+        .catch((err) => {
+          if (!this.silent) {
+            log.error("ExportPluginManager:handleError", err);
+          }
+        })
     );
+    await Promise.allSettled(promises);
   }
 
   /**
    * Handle export complete event.
    */
-  private handleComplete(summary: ExportSummary): Observable<void> {
-    return merge(
-      ...this.plugins.map((plugin) =>
-        from(plugin.onExportComplete(summary)).pipe(
-          catchError((error) => {
-            if (!this.silent) {
-              console.error("Plugin error in onExportComplete:", error);
-            }
-            return of(undefined);
-          })
-        )
-      )
-    ).pipe(
-      toArray(),
-      map((): void => undefined)
+  private async handleComplete(summary: ExportSummary): Promise<void> {
+    const promises = this.plugins.map((plugin) =>
+      plugin
+        .onExportComplete(summary)
+        .toPromise()
+        .catch((error) => {
+          if (!this.silent) {
+            log.error("ExportPluginManager:handleComplete", error);
+          }
+        })
     );
+    await Promise.allSettled(promises);
   }
 
   /**
@@ -191,17 +196,14 @@ export class ExportPluginManager {
    * @returns Promise that resolves when all plugins are cleaned up
    */
   async cleanup(): Promise<void> {
-    await Promise.all(
-      this.plugins.map(async (plugin) => {
-        try {
-          await plugin.cleanup();
-        } catch (error) {
-          if (!this.silent) {
-            console.error("Plugin cleanup error:", error);
-          }
+    const promises = this.plugins.map((plugin) =>
+      plugin.cleanup().catch((error) => {
+        if (!this.silent) {
+          log.error("ExportPluginManager:cleanup", error);
         }
       })
     );
+    await Promise.allSettled(promises);
   }
 
   /**
@@ -226,7 +228,7 @@ export class ExportPluginManager {
  *
  * Writes entities to the filesystem in JSON format.
  */
-export class FSPlugin implements ExportPlugin {
+export class FileSystemPlugin implements ExportPlugin {
   private fileMap: Map<string, string> = new Map();
   private activeEntityCount = 0;
   private silent = false;
@@ -237,69 +239,73 @@ export class FSPlugin implements ExportPlugin {
   }
 
   onExportStart(config: ExporterConfig): Observable<void> {
-    return new Observable<void>((subscriber) => {
-      // Initialize filesystem access
-      const outputDir = config.outputDir || "./notion-export";
-      fs.mkdir(outputDir, { recursive: true })
-        .then(() => {
-          subscriber.next();
-          subscriber.complete();
-        })
-        .catch((error) => {
-          subscriber.error(error);
-        });
-    });
+    const outputDir = config.outputDir || "./notion-export";
+    return from(fs.mkdir(outputDir, { recursive: true })).pipe(
+      tap(() => {
+        if (!this.silent) {
+          log.info(`FileSystemPlugin initialized with output directory: ${outputDir}`);
+        }
+      }),
+      catchError((error) => {
+        if (!this.silent) {
+          log.error("FileSystemPlugin:onExportStart", error);
+        }
+        throw error;
+      }),
+      map((): void => undefined)
+    );
   }
 
   onEntity(entity: NotionEntity): Observable<void> {
-    return new Observable<void>((subscriber) => {
-      const entityPath = this.getPathForEntity(entity);
-      try {
-        this.activeEntityCount++;
+    const entityPath = this.getPathForEntity(entity);
+    const entityDir = path.dirname(entityPath);
 
-        // Write entity to filesystem
-        const outputDir = this.config.outputDir || "./notion-export";
-        const entityDir = path.dirname(entityPath);
+    this.activeEntityCount++;
 
-        fs.mkdir(entityDir, { recursive: true })
-          .then(() => fs.writeFile(entityPath, JSON.stringify(entity, null, 2)))
-          .then(() => {
-            this.fileMap.set(entity.id, entityPath);
-            subscriber.next();
-            subscriber.complete();
-          })
-          .catch((error) => {
-            subscriber.error(error);
-          });
-      } catch (error) {
-        subscriber.error(error);
-      }
-    });
+    return from(
+      fs
+        .mkdir(entityDir, { recursive: true })
+        .then(() => fs.writeFile(entityPath, JSON.stringify(entity, null, 2)))
+        .then(() => {
+          this.fileMap.set(entity.id, entityPath);
+        })
+    ).pipe(
+      catchError((error) => {
+        if (!this.silent) {
+          log.error("FileSystemPlugin:onEntity", error);
+        }
+        throw error;
+      }),
+      map((): void => undefined)
+    );
   }
 
   onExportComplete(summary: ExportSummary): Observable<void> {
-    return new Observable<void>((subscriber) => {
-      // Write summary file
-      const summaryPath = path.join(this.config.outputDir || "./notion-export", "export-summary.json");
-      fs.writeFile(summaryPath, JSON.stringify(summary, null, 2))
-        .then(() => {
-          subscriber.next();
-          subscriber.complete();
-        })
-        .catch((error) => {
-          subscriber.error(error);
-        });
-    });
+    const summaryPath = path.join(this.config.outputDir || "./notion-export", "export-summary.json");
+    return from(fs.writeFile(summaryPath, JSON.stringify(summary, null, 2))).pipe(
+      tap(() => {
+        if (!this.silent) {
+          log.success(`Export completed. Summary written to: ${summaryPath}`);
+        }
+      }),
+      catchError((error) => {
+        if (!this.silent) {
+          log.error("FileSystemPlugin:onExportComplete", error);
+        }
+        throw error;
+      }),
+      map((): void => undefined)
+    );
   }
 
   onError(error: Error): Observable<void> {
-    return new Observable<void>((subscriber) => {
-      if (!this.silent) {
-        console.error("[FSPlugin] Error:", error);
-      }
-      subscriber.next();
-      subscriber.complete();
-    });
+    return of(undefined as void).pipe(
+      tap(() => {
+        if (!this.silent) {
+          log.error("FileSystemPlugin:onError", error);
+        }
+      })
+    );
   }
 
   cleanup(): Promise<void> {
@@ -411,13 +417,13 @@ export function initPluginSystem(commands: Command[]): void {
   globalRegistry.setCommands(commands);
 
   // Register default plugins
-  globalRegistry.register("fs", FSPlugin);
+  globalRegistry.register("fs", FileSystemPlugin);
 
   // Setup plugin discovery - could be extended to scan directories
   // or load from npm packages in the future
   const silent = process.env.NODE_ENV === "test" || process.env.VITEST === "true";
   if (!silent) {
-    console.log(`Plugin system initialized with ${globalRegistry.getAll().size} plugins`);
+    log.info(`Plugin system initialized with ${globalRegistry.getAll().size} plugins`);
   }
 }
 
@@ -436,7 +442,7 @@ export function registerPlugin(plugin: ExportPlugin): void {
 
   const silent = process.env.NODE_ENV === "test" || process.env.VITEST === "true";
   if (!silent) {
-    console.log(`Plugin '${pluginName}' registered globally`);
+    log.success(`Plugin '${pluginName}' registered globally`);
   }
 }
 
@@ -479,4 +485,4 @@ export function clearPlugins(): void {
 /**
  * Default plugins that are always loaded.
  */
-export const defaultPlugins: Array<new () => ExportPlugin> = [FSPlugin];
+export const defaultPlugins: Array<new () => ExportPlugin> = [FileSystemPlugin];
