@@ -44,7 +44,7 @@ describe("ExportPlugin Interface", () => {
       onEntity: vi.fn().mockReturnValue(of(undefined)),
       onExportComplete: vi.fn().mockReturnValue(of(undefined)),
       onError: vi.fn().mockReturnValue(of(undefined)),
-      cleanup: vi.fn().mockResolvedValue(undefined)
+      cleanup: vi.fn().mockReturnValue(of(undefined))
     };
 
     expect(mockPlugin.onExportStart).toBeDefined();
@@ -71,7 +71,7 @@ describe("ExportPluginManager", () => {
       onEntity: vi.fn().mockReturnValue(of(undefined)),
       onExportComplete: vi.fn().mockReturnValue(of(undefined)),
       onError: vi.fn().mockReturnValue(of(undefined)),
-      cleanup: vi.fn().mockResolvedValue(undefined)
+      cleanup: vi.fn().mockReturnValue(of(undefined))
     };
   });
 
@@ -91,7 +91,7 @@ describe("ExportPluginManager", () => {
         onEntity: vi.fn().mockReturnValue(of(undefined)),
         onExportComplete: vi.fn().mockReturnValue(of(undefined)),
         onError: vi.fn().mockReturnValue(of(undefined)),
-        cleanup: vi.fn().mockResolvedValue(undefined)
+        cleanup: vi.fn().mockReturnValue(of(undefined))
       };
 
       pluginManager = new ExportPluginManager([testPlugin]);
@@ -106,7 +106,7 @@ describe("ExportPluginManager", () => {
         onEntity: vi.fn().mockReturnValue(of(undefined)),
         onExportComplete: vi.fn().mockReturnValue(of(undefined)),
         onError: vi.fn().mockReturnValue(of(undefined)),
-        cleanup: vi.fn().mockResolvedValue(undefined)
+        cleanup: vi.fn().mockReturnValue(of(undefined))
       };
 
       pluginManager = new ExportPluginManager([validPlugin, invalidPlugin].filter(Boolean));
@@ -134,7 +134,6 @@ describe("ExportPluginManager", () => {
 
       pluginManager.notify(startPayload);
 
-      // Wait for async event handling
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(mockPlugin.onExportStart).toHaveBeenCalledWith(config);
@@ -153,7 +152,6 @@ describe("ExportPluginManager", () => {
 
       pluginManager.notify(entityPayload);
 
-      // Wait for async event handling
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(mockPlugin.onEntity).toHaveBeenCalledWith(entity);
@@ -168,7 +166,6 @@ describe("ExportPluginManager", () => {
 
       pluginManager.notify(errorPayload);
 
-      // Wait for async event handling
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(mockPlugin.onError).toHaveBeenCalledWith(error);
@@ -189,7 +186,6 @@ describe("ExportPluginManager", () => {
 
       pluginManager.notify(completePayload);
 
-      // Wait for async event handling
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(mockPlugin.onExportComplete).toHaveBeenCalledWith(summary);
@@ -204,7 +200,6 @@ describe("ExportPluginManager", () => {
 
       pluginManager.notify(progressPayload);
 
-      // Wait for async event handling
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(mockPlugin.onExportStart).not.toHaveBeenCalled();
@@ -220,7 +215,6 @@ describe("ExportPluginManager", () => {
 
       pluginManager.notify(unknownPayload);
 
-      // Wait for async event handling
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(mockPlugin.onExportStart).not.toHaveBeenCalled();
@@ -235,7 +229,7 @@ describe("ExportPluginManager", () => {
         onEntity: vi.fn().mockReturnValue(of(undefined)),
         onExportComplete: vi.fn().mockReturnValue(of(undefined)),
         onError: vi.fn().mockReturnValue(of(undefined)),
-        cleanup: vi.fn().mockResolvedValue(undefined)
+        cleanup: vi.fn().mockReturnValue(of(undefined))
       };
 
       pluginManager = new ExportPluginManager([mockPlugin, mockPlugin2]);
@@ -247,7 +241,6 @@ describe("ExportPluginManager", () => {
 
       pluginManager.notify({ type: "entity", entity });
 
-      // Wait for async event handling
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(mockPlugin.onEntity).toHaveBeenCalledWith(entity);
@@ -260,7 +253,7 @@ describe("ExportPluginManager", () => {
         onEntity: vi.fn().mockReturnValue(throwError(() => new Error("Plugin error"))),
         onExportComplete: vi.fn().mockReturnValue(of(undefined)),
         onError: vi.fn().mockReturnValue(of(undefined)),
-        cleanup: vi.fn().mockResolvedValue(undefined)
+        cleanup: vi.fn().mockReturnValue(of(undefined))
       };
 
       pluginManager = new ExportPluginManager([failingPlugin]);
@@ -272,7 +265,6 @@ describe("ExportPluginManager", () => {
 
       pluginManager.notify({ type: "entity", entity });
 
-      // Wait for async event handling
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(failingPlugin.onEntity).toHaveBeenCalledWith(entity);
@@ -284,14 +276,13 @@ describe("ExportPluginManager", () => {
         onEntity: vi.fn().mockReturnValue(of(undefined)),
         onExportComplete: vi.fn().mockReturnValue(of(undefined)),
         onError: vi.fn().mockReturnValue(of(undefined)),
-        cleanup: vi.fn().mockResolvedValue(undefined)
+        cleanup: vi.fn().mockReturnValue(of(undefined))
       };
 
       pluginManager = new ExportPluginManager([failingPlugin, mockPlugin]);
 
       pluginManager.notify({ type: "start", config });
 
-      // Wait for async event handling
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(failingPlugin.onExportStart).toHaveBeenCalledWith(config);
@@ -306,15 +297,20 @@ describe("ExportPluginManager", () => {
         onEntity: vi.fn().mockReturnValue(of(undefined)),
         onExportComplete: vi.fn().mockReturnValue(of(undefined)),
         onError: vi.fn().mockReturnValue(of(undefined)),
-        cleanup: vi.fn().mockResolvedValue(undefined)
+        cleanup: vi.fn().mockReturnValue(of(undefined))
       };
 
       pluginManager = new ExportPluginManager([mockPlugin, mockPlugin2]);
 
-      await pluginManager.cleanup();
-
-      expect(mockPlugin.cleanup).toHaveBeenCalled();
-      expect(mockPlugin2.cleanup).toHaveBeenCalled();
+      return new Promise<void>((resolve) => {
+        pluginManager.cleanup().subscribe({
+          complete: () => {
+            expect(mockPlugin.cleanup).toHaveBeenCalled();
+            expect(mockPlugin2.cleanup).toHaveBeenCalled();
+            resolve();
+          }
+        });
+      });
     });
 
     it("should handle cleanup errors gracefully", async () => {
@@ -323,14 +319,20 @@ describe("ExportPluginManager", () => {
         onEntity: vi.fn().mockReturnValue(of(undefined)),
         onExportComplete: vi.fn().mockReturnValue(of(undefined)),
         onError: vi.fn().mockReturnValue(of(undefined)),
-        cleanup: vi.fn().mockRejectedValue(new Error("Cleanup error"))
+        cleanup: vi.fn().mockReturnValue(throwError(() => new Error("Cleanup error")))
       };
 
       pluginManager = new ExportPluginManager([mockPlugin, failingPlugin]);
 
-      await expect(pluginManager.cleanup()).resolves.not.toThrow();
-      expect(failingPlugin.cleanup).toHaveBeenCalled();
-      expect(mockPlugin.cleanup).toHaveBeenCalled();
+      return new Promise<void>((resolve) => {
+        pluginManager.cleanup().subscribe({
+          complete: () => {
+            expect(failingPlugin.cleanup).toHaveBeenCalled();
+            expect(mockPlugin.cleanup).toHaveBeenCalled();
+            resolve();
+          }
+        });
+      });
     });
   });
 
@@ -380,21 +382,28 @@ describe("FileSystemPlugin", () => {
 
   describe("onExportStart", () => {
     it("should initialize successfully", async () => {
-      const result = await fsPlugin.onExportStart(config).toPromise();
-      expect(result).toBeUndefined();
+      return new Promise<void>((resolve) => {
+        fsPlugin.onExportStart(config).subscribe({
+          complete: () => {
+            resolve();
+          }
+        });
+      });
     });
 
     it("should handle filesystem errors during initialization", async () => {
       const fs = await import("fs/promises");
       vi.mocked(fs.mkdir).mockRejectedValueOnce(new Error("Permission denied"));
 
-      try {
-        await fsPlugin.onExportStart(config).toPromise();
-        expect(true).toBe(false); // Should not reach here
-      } catch (error) {
-        expect(error).toBeDefined();
-        expect((error as Error).message).toBe("Permission denied");
-      }
+      return new Promise<void>((resolve) => {
+        fsPlugin.onExportStart(config).subscribe({
+          error: (error) => {
+            expect(error).toBeDefined();
+            expect((error as Error).message).toBe("Permission denied");
+            resolve();
+          }
+        });
+      });
     });
   });
 
@@ -405,10 +414,15 @@ describe("FileSystemPlugin", () => {
         type: "page"
       };
 
-      const result = await fsPlugin.onEntity(entity).toPromise();
-      expect(result).toBeUndefined();
-      expect(fsPlugin.getActiveEntityCount()).toBe(1);
-      expect(fsPlugin.getFileMap().has(entity.id)).toBe(true);
+      return new Promise<void>((resolve) => {
+        fsPlugin.onEntity(entity).subscribe({
+          complete: () => {
+            expect(fsPlugin.getActiveEntityCount()).toBe(1);
+            expect(fsPlugin.getFileMap().has(entity.id)).toBe(true);
+            resolve();
+          }
+        });
+      });
     });
 
     it("should handle different entity types", async () => {
@@ -418,10 +432,20 @@ describe("FileSystemPlugin", () => {
         { id: "database-1", type: "database" }
       ];
 
-      for (const entity of entities) {
-        await fsPlugin.onEntity(entity).toPromise();
-      }
+      let completed = 0;
+      const promises = entities.map(
+        (entity) =>
+          new Promise<void>((resolve) => {
+            fsPlugin.onEntity(entity).subscribe({
+              complete: () => {
+                completed++;
+                resolve();
+              }
+            });
+          })
+      );
 
+      await Promise.all(promises);
       expect(fsPlugin.getActiveEntityCount()).toBe(3);
       expect(fsPlugin.getFileMap().size).toBe(3);
     });
@@ -435,13 +459,15 @@ describe("FileSystemPlugin", () => {
         type: "page"
       };
 
-      try {
-        await fsPlugin.onEntity(entity).toPromise();
-        expect(true).toBe(false);
-      } catch (error) {
-        expect(error).toBeDefined();
-        expect((error as Error).message).toBe("Disk full");
-      }
+      return new Promise<void>((resolve) => {
+        fsPlugin.onEntity(entity).subscribe({
+          error: (error) => {
+            expect(error).toBeDefined();
+            expect((error as Error).message).toBe("Disk full");
+            resolve();
+          }
+        });
+      });
     });
   });
 
@@ -454,8 +480,13 @@ describe("FileSystemPlugin", () => {
         duration: 5000
       };
 
-      const result = await fsPlugin.onExportComplete(summary).toPromise();
-      expect(result).toBeUndefined();
+      return new Promise<void>((resolve) => {
+        fsPlugin.onExportComplete(summary).subscribe({
+          complete: () => {
+            resolve();
+          }
+        });
+      });
     });
 
     it("should handle errors when writing summary", async () => {
@@ -469,28 +500,40 @@ describe("FileSystemPlugin", () => {
         duration: 5000
       };
 
-      try {
-        await fsPlugin.onExportComplete(summary).toPromise();
-        expect(true).toBe(false);
-      } catch (error) {
-        expect(error).toBeDefined();
-        expect((error as Error).message).toBe("Permission denied");
-      }
+      return new Promise<void>((resolve) => {
+        fsPlugin.onExportComplete(summary).subscribe({
+          error: (error) => {
+            expect(error).toBeDefined();
+            expect((error as Error).message).toBe("Permission denied");
+            resolve();
+          }
+        });
+      });
     });
   });
 
   describe("onError", () => {
     it("should handle errors gracefully", async () => {
       const error = new Error("Test error");
-      const result = await fsPlugin.onError(error).toPromise();
-      expect(result).toBeUndefined();
+      return new Promise<void>((resolve) => {
+        fsPlugin.onError(error).subscribe({
+          complete: () => {
+            resolve();
+          }
+        });
+      });
     });
 
     it("should respect silent mode", async () => {
       fsPlugin.setSilentMode(true);
       const error = new Error("Test error");
-      const result = await fsPlugin.onError(error).toPromise();
-      expect(result).toBeUndefined();
+      return new Promise<void>((resolve) => {
+        fsPlugin.onError(error).subscribe({
+          complete: () => {
+            resolve();
+          }
+        });
+      });
     });
   });
 
@@ -500,16 +543,30 @@ describe("FileSystemPlugin", () => {
       const entity1: NotionEntity = { id: "test-1", type: "page" };
       const entity2: NotionEntity = { id: "test-2", type: "block" };
 
-      await fsPlugin.onEntity(entity1).toPromise();
-      await fsPlugin.onEntity(entity2).toPromise();
+      const entityPromises = [entity1, entity2].map(
+        (entity) =>
+          new Promise<void>((resolve) => {
+            fsPlugin.onEntity(entity).subscribe({
+              complete: () => {
+                resolve();
+              }
+            });
+          })
+      );
 
+      await Promise.all(entityPromises);
       expect(fsPlugin.getActiveEntityCount()).toBe(2);
       expect(fsPlugin.getFileMap().size).toBe(2);
 
-      await fsPlugin.cleanup();
-
-      expect(fsPlugin.getActiveEntityCount()).toBe(0);
-      expect(fsPlugin.getFileMap().size).toBe(0);
+      return new Promise<void>((resolve) => {
+        fsPlugin.cleanup().subscribe({
+          complete: () => {
+            expect(fsPlugin.getActiveEntityCount()).toBe(0);
+            expect(fsPlugin.getFileMap().size).toBe(0);
+            resolve();
+          }
+        });
+      });
     });
   });
 
@@ -567,7 +624,7 @@ describe("Plugin Registry Functions", () => {
         onEntity: vi.fn().mockReturnValue(of(undefined)),
         onExportComplete: vi.fn().mockReturnValue(of(undefined)),
         onError: vi.fn().mockReturnValue(of(undefined)),
-        cleanup: vi.fn().mockResolvedValue(undefined)
+        cleanup: vi.fn().mockReturnValue(of(undefined))
       };
 
       registerPlugin(testPlugin);
@@ -583,7 +640,7 @@ describe("Plugin Registry Functions", () => {
         onEntity: vi.fn().mockReturnValue(of(undefined)),
         onExportComplete: vi.fn().mockReturnValue(of(undefined)),
         onError: vi.fn().mockReturnValue(of(undefined)),
-        cleanup: vi.fn().mockResolvedValue(undefined)
+        cleanup: vi.fn().mockReturnValue(of(undefined))
       };
 
       // Should not log during testing
@@ -703,10 +760,15 @@ describe("Integration Tests", () => {
     await new Promise((resolve) => setTimeout(resolve, 100));
 
     // Cleanup
-    await pluginManager.cleanup();
-
-    expect(pluginManager.getPlugins()).toHaveLength(1);
-    expect(pluginManager.getPlugins()[0]).toBeInstanceOf(FileSystemPlugin);
+    return new Promise<void>((resolve) => {
+      pluginManager.cleanup().subscribe({
+        complete: () => {
+          expect(pluginManager.getPlugins()).toHaveLength(1);
+          expect(pluginManager.getPlugins()[0]).toBeInstanceOf(FileSystemPlugin);
+          resolve();
+        }
+      });
+    });
   });
 
   it("should handle multiple plugin types together", async () => {
@@ -715,7 +777,7 @@ describe("Integration Tests", () => {
       onEntity = vi.fn().mockReturnValue(of(undefined));
       onExportComplete = vi.fn().mockReturnValue(of(undefined));
       onError = vi.fn().mockReturnValue(of(undefined));
-      cleanup = vi.fn().mockResolvedValue(undefined);
+      cleanup = vi.fn().mockReturnValue(of(undefined));
     }
 
     const config: ExporterConfig = { token: "test-token", outputDir: "./test-output" };
@@ -738,7 +800,7 @@ describe("Integration Tests", () => {
       onEntity = vi.fn().mockReturnValue(throwError(() => new Error("Entity error")));
       onExportComplete = vi.fn().mockReturnValue(throwError(() => new Error("Complete error")));
       onError = vi.fn().mockReturnValue(throwError(() => new Error("Error in error handler")));
-      cleanup = vi.fn().mockRejectedValue(new Error("Cleanup error"));
+      cleanup = vi.fn().mockReturnValue(throwError(() => new Error("Cleanup error")));
     }
 
     const pluginManager = new ExportPluginManager([new ErrorPlugin()]);
@@ -757,9 +819,14 @@ describe("Integration Tests", () => {
     await new Promise((resolve) => setTimeout(resolve, 100));
 
     // Cleanup should not throw
-    await expect(pluginManager.cleanup()).resolves.not.toThrow();
-
-    expect(pluginManager.getPlugins()).toHaveLength(1);
+    return new Promise<void>((resolve) => {
+      pluginManager.cleanup().subscribe({
+        complete: () => {
+          expect(pluginManager.getPlugins()).toHaveLength(1);
+          resolve();
+        }
+      });
+    });
   });
 
   it("should support plugin registry workflow", () => {
@@ -773,7 +840,7 @@ describe("Integration Tests", () => {
       onEntity: vi.fn().mockReturnValue(of(undefined)),
       onExportComplete: vi.fn().mockReturnValue(of(undefined)),
       onError: vi.fn().mockReturnValue(of(undefined)),
-      cleanup: vi.fn().mockResolvedValue(undefined)
+      cleanup: vi.fn().mockReturnValue(of(undefined))
     };
 
     registerPlugin(customPlugin);
@@ -801,13 +868,28 @@ describe("Error Scenarios", () => {
     const entity: NotionEntity = { id: "test-entity", type: "page" };
     const summary: ExportSummary = { successCount: 0, errorCount: 1, processedTypes: {}, duration: 100 };
 
-    // All operations should handle errors gracefully
-    await expect(fsPlugin.onExportStart(config).toPromise()).rejects.toThrow();
-    await expect(fsPlugin.onEntity(entity).toPromise()).rejects.toThrow();
-    await expect(fsPlugin.onExportComplete(summary).toPromise()).rejects.toThrow();
+    const promises = [
+      new Promise<void>((resolve) => {
+        fsPlugin.onExportStart(config).subscribe({ error: () => resolve() });
+      }),
+      new Promise<void>((resolve) => {
+        fsPlugin.onEntity(entity).subscribe({ error: () => resolve() });
+      }),
+      new Promise<void>((resolve) => {
+        fsPlugin.onExportComplete(summary).subscribe({ error: () => resolve() });
+      })
+    ];
+
+    await Promise.all(promises);
 
     // Error handling should not throw
-    await expect(fsPlugin.onError(new Error("Test error")).toPromise()).resolves.not.toThrow();
+    return new Promise<void>((resolve) => {
+      fsPlugin.onError(new Error("Test error")).subscribe({
+        complete: () => {
+          resolve();
+        }
+      });
+    });
   });
 
   it("should handle edge cases in plugin initialization", () => {
@@ -831,7 +913,7 @@ describe("Additional Test Coverage", () => {
         onEntity: vi.fn().mockReturnValue(of(undefined)),
         onExportComplete: vi.fn().mockReturnValue(of(undefined)),
         onError: vi.fn().mockReturnValue(of(undefined)),
-        cleanup: vi.fn().mockResolvedValue(undefined)
+        cleanup: vi.fn().mockReturnValue(of(undefined))
       };
 
       const plugin2: ExportPlugin = {
@@ -842,7 +924,7 @@ describe("Additional Test Coverage", () => {
         onEntity: vi.fn().mockReturnValue(of(undefined)),
         onExportComplete: vi.fn().mockReturnValue(of(undefined)),
         onError: vi.fn().mockReturnValue(of(undefined)),
-        cleanup: vi.fn().mockResolvedValue(undefined)
+        cleanup: vi.fn().mockReturnValue(of(undefined))
       };
 
       const pluginManager = new ExportPluginManager([plugin1, plugin2]);
@@ -872,9 +954,14 @@ describe("Additional Test Coverage", () => {
         type: "page"
       };
 
-      const result = await fsPlugin.onEntity(entity).toPromise();
-      expect(result).toBeUndefined();
-      expect(fsPlugin.getFileMap().has(entity.id)).toBe(true);
+      return new Promise<void>((resolve) => {
+        fsPlugin.onEntity(entity).subscribe({
+          complete: () => {
+            expect(fsPlugin.getFileMap().has(entity.id)).toBe(true);
+            resolve();
+          }
+        });
+      });
     });
 
     it("should handle deeply nested directory structures", async () => {
@@ -884,8 +971,13 @@ describe("Additional Test Coverage", () => {
         type: "database"
       };
 
-      const result = await fsPlugin.onEntity(entity).toPromise();
-      expect(result).toBeUndefined();
+      return new Promise<void>((resolve) => {
+        fsPlugin.onEntity(entity).subscribe({
+          complete: () => {
+            resolve();
+          }
+        });
+      });
     });
   });
 });

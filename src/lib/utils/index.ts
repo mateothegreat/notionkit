@@ -1,5 +1,5 @@
 import { EventEmitter } from "events";
-import { Observable } from "rxjs";
+import { Observable, of } from "rxjs";
 import type { ExportSummary } from "../types";
 
 /**
@@ -62,11 +62,8 @@ export class PerformanceTracker {
    *
    * @returns Observable that emits the current summary
    */
-  async getSummaryObservable(): Promise<Observable<ExportSummary>> {
-    return new Observable<ExportSummary>((subscriber: import("rxjs").Subscriber<ExportSummary>) => {
-      subscriber.next(this.getSummary());
-      subscriber.complete();
-    });
+  getSummaryObservable(): Observable<ExportSummary> {
+    return of(this.getSummary());
   }
 }
 

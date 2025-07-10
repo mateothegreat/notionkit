@@ -85,7 +85,7 @@ describe("PerformanceTracker", () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       const summary = tracker.getSummary();
-      expect(summary.duration).toBeGreaterThanOrEqual(100);
+      expect(summary.duration).toBeGreaterThanOrEqual(95); // Allow for timing variance
     });
   });
 

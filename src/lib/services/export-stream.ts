@@ -1,5 +1,5 @@
 import { Client as NotionClient } from "@notionhq/client";
-import { EMPTY, from, merge, Observable, of, ReplaySubject, Subject } from "rxjs";
+import { EMPTY, merge, Observable, of, ReplaySubject, Subject } from "rxjs";
 import { catchError, concatMap, finalize, map, share, takeUntil, tap, toArray } from "rxjs/operators";
 import { ExportPluginManager } from "../plugins";
 import type {
@@ -45,7 +45,10 @@ export class ExportStream {
    */
   execute(): Observable<{ success: boolean; summary: ExportSummary }> {
     if (this.config.workspace) {
-      return this.processWorkspace(this.config.workspace).pipe(takeUntil(this.stop$));
+      return this.processWorkspace(this.config.workspace).pipe(
+        finalize(() => this.complete()),
+        takeUntil(this.stop$)
+      );
     }
 
     return this.getAllWorkspaces().pipe(
@@ -76,7 +79,7 @@ export class ExportStream {
    * Process a single workspace.
    */
   private processWorkspace(workspaceId: string): Observable<{ success: boolean; summary: ExportSummary }> {
-    return from(this.getWorkspace(workspaceId)).pipe(
+    return this.getWorkspace(workspaceId).pipe(
       concatMap((workspace) =>
         merge(
           this.processEntity(workspace),
@@ -98,7 +101,7 @@ export class ExportStream {
   private processDatabase(database: NotionDatabase): Observable<null> {
     return merge(
       this.processEntity(database),
-      from(this.getPagesForDatabase(database.id)).pipe(concatMap((page) => this.processPage(page)))
+      this.getPagesForDatabase(database.id).pipe(concatMap((page) => this.processPage(page)))
     );
   }
 
@@ -179,13 +182,7 @@ export class ExportStream {
   }
 
   onComplete(): Observable<ExportSummary> {
-    return this.completed$.asObservable().pipe(
-      concatMap(async (): Promise<Observable<ExportSummary>> => {
-        const observable = await this.performanceTracker.getSummaryObservable();
-        return observable;
-      }),
-      concatMap((obs: Observable<ExportSummary>) => obs)
-    );
+    return this.completed$.asObservable().pipe(map(() => this.performanceTracker.getSummary()));
   }
 
   // Control methods
@@ -194,8 +191,8 @@ export class ExportStream {
     this.stop$.complete();
   }
 
-  async cleanup(): Promise<void> {
-    await this.pluginManager.cleanup();
+  cleanup(): Observable<void> {
+    return this.pluginManager.cleanup();
   }
 
   // Private helper methods
@@ -226,15 +223,15 @@ export class ExportStream {
     }
   }
 
-  // Notion API methods (to be implemented)
+  // Notion API methods (converted to observables)
   private getAllWorkspaces(): Observable<NotionEntity[]> {
     // TODO: Implement actual Notion API call
     return of([]);
   }
 
-  private async getWorkspace(workspaceId: string): Promise<NotionEntity> {
+  private getWorkspace(workspaceId: string): Observable<NotionEntity> {
     // TODO: Implement actual Notion API call
-    return { id: workspaceId, type: "workspace" };
+    return of({ id: workspaceId, type: "workspace" });
   }
 
   private getDatabasesForWorkspace(workspaceId: string): Observable<NotionDatabase> {
@@ -242,9 +239,9 @@ export class ExportStream {
     return EMPTY;
   }
 
-  private getPagesForDatabase(databaseId: string): NotionPage[] {
+  private getPagesForDatabase(databaseId: string): Observable<NotionPage> {
     // TODO: Implement actual Notion API call
-    return [];
+    return EMPTY;
   }
 }
 

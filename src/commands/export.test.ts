@@ -90,7 +90,7 @@ describe("Export Command", () => {
         ),
         onEvent: vi.fn().mockReturnValue(of()),
         stop: vi.fn(),
-        cleanup: vi.fn().mockResolvedValue(undefined)
+        cleanup: vi.fn().mockReturnValue(of(undefined))
       };
 
       vi.spyOn(ExportStream.prototype, "execute").mockImplementation(mockExportStream.execute);
@@ -126,7 +126,7 @@ describe("Export Command", () => {
         ),
         onEvent: vi.fn().mockReturnValue(of()),
         stop: vi.fn(),
-        cleanup: vi.fn().mockResolvedValue(undefined)
+        cleanup: vi.fn().mockReturnValue(of(undefined))
       };
 
       vi.spyOn(ExportStream.prototype, "execute").mockImplementation(mockExportStream.execute);
@@ -162,7 +162,7 @@ describe("Export Command", () => {
         ),
         onEvent: vi.fn().mockReturnValue(of()),
         stop: vi.fn(),
-        cleanup: vi.fn().mockResolvedValue(undefined)
+        cleanup: vi.fn().mockReturnValue(of(undefined))
       };
 
       vi.spyOn(ExportStream.prototype, "execute").mockImplementation(mockExportStream.execute);
@@ -208,7 +208,7 @@ describe("Export Command", () => {
         ),
         onEvent: vi.fn().mockReturnValue(of()),
         stop: vi.fn(),
-        cleanup: vi.fn().mockResolvedValue(undefined)
+        cleanup: vi.fn().mockReturnValue(of(undefined))
       };
 
       vi.spyOn(ExportStream.prototype, "execute").mockImplementation(mockExportStream.execute);
@@ -246,7 +246,7 @@ describe("Export Command", () => {
         ),
         onEvent: vi.fn().mockReturnValue(of()),
         stop: vi.fn(),
-        cleanup: vi.fn().mockResolvedValue(undefined)
+        cleanup: vi.fn().mockReturnValue(of(undefined))
       };
 
       vi.spyOn(ExportStream.prototype, "execute").mockImplementation(mockStream.execute);
@@ -254,7 +254,7 @@ describe("Export Command", () => {
       vi.spyOn(ExportStream.prototype, "cleanup").mockImplementation(mockStream.cleanup);
 
       const command = new Export([], {} as any);
-      const result = await command["processExport"](mockStream as any);
+      await command["processExport"](mockStream as any);
 
       expect(mockStream.execute).toHaveBeenCalled();
     });
@@ -275,7 +275,7 @@ describe("Export Command", () => {
         ),
         onEvent: vi.fn().mockReturnValue(of()),
         stop: vi.fn(),
-        cleanup: vi.fn().mockResolvedValue(undefined)
+        cleanup: vi.fn().mockReturnValue(of(undefined))
       };
 
       vi.spyOn(ExportStream.prototype, "execute").mockImplementation(mockStream.execute);
@@ -284,11 +284,12 @@ describe("Export Command", () => {
 
       const command = new Export([], {} as any);
 
-      try {
-        await command["processExport"](mockStream as any);
-      } catch (error) {
-        expect(error).toBeDefined();
-      }
+      // Mock the exit method to avoid actually exiting
+      vi.spyOn(command, "exit" as any).mockImplementation(() => {});
+
+      await command["processExport"](mockStream as any);
+
+      expect(command.exit).toHaveBeenCalledWith(1);
     });
   });
 
@@ -314,7 +315,7 @@ describe("Export Command", () => {
           );
         }),
         stop: vi.fn(),
-        cleanup: vi.fn().mockResolvedValue(undefined)
+        cleanup: vi.fn().mockReturnValue(of(undefined))
       };
 
       vi.spyOn(ExportStream.prototype, "execute").mockImplementation(mockStream.execute);
@@ -325,6 +326,164 @@ describe("Export Command", () => {
       await command["processExport"](mockStream as any);
 
       expect(mockStream.onEvent).toHaveBeenCalled();
+    });
+  });
+
+  describe("loadPlugins", () => {
+    it("should return empty array when no plugins specified", () => {
+      const command = new Export([], {} as any);
+      const plugins = command["loadPlugins"]();
+      expect(plugins).toEqual([]);
+    });
+
+    it("should return empty array when empty plugins array", () => {
+      const command = new Export([], {} as any);
+      const plugins = command["loadPlugins"]([]);
+      expect(plugins).toEqual([]);
+    });
+
+    it("should handle plugin loading errors gracefully", () => {
+      const command = new Export([], {} as any);
+      vi.spyOn(command, "warn" as any).mockImplementation(() => {});
+
+      const plugins = command["loadPlugins"](["non-existent-plugin"]);
+
+      expect(plugins).toEqual([]);
+      expect(command.warn).toHaveBeenCalledWith(expect.stringContaining("Failed to load plugin"));
+    });
+  });
+
+  describe("displaySummary", () => {
+    it("should display export summary without errors", () => {
+      const summary: ExportSummary = {
+        successCount: 10,
+        errorCount: 0,
+        processedTypes: { page: 8, block: 2 },
+        duration: 5000
+      };
+
+      const command = new Export([], {} as any);
+
+      // Mock the log functions
+      const mockLog = {
+        info: vi.fn(),
+        success: vi.fn(),
+        error: vi.fn()
+      };
+
+      vi.doMock("$lib/utils/logging", () => ({
+        log: mockLog
+      }));
+
+      command["displaySummary"](summary);
+
+      // Should not call error log when errorCount is 0
+      expect(mockLog.error).not.toHaveBeenCalled();
+    });
+
+    it("should display export summary with errors", () => {
+      const summary: ExportSummary = {
+        successCount: 8,
+        errorCount: 2,
+        processedTypes: { page: 6, block: 2 },
+        duration: 3000
+      };
+
+      const command = new Export([], {} as any);
+
+      // This test verifies the method runs without error
+      // Since we're mocking the log module, we can't easily verify calls
+      expect(() => command["displaySummary"](summary)).not.toThrow();
+    });
+  });
+
+  describe("event handling", () => {
+    it("should handle start events", async () => {
+      const mockStream = {
+        execute: vi.fn().mockReturnValue(
+          of({
+            success: true,
+            summary: {
+              successCount: 1,
+              errorCount: 0,
+              processedTypes: { page: 1 },
+              duration: 100
+            } as ExportSummary
+          })
+        ),
+        onEvent: vi.fn().mockReturnValue(of({ type: "start", config: {} })),
+        stop: vi.fn(),
+        cleanup: vi.fn().mockReturnValue(of(undefined))
+      };
+
+      vi.spyOn(ExportStream.prototype, "execute").mockImplementation(mockStream.execute);
+      vi.spyOn(ExportStream.prototype, "onEvent").mockImplementation(mockStream.onEvent);
+      vi.spyOn(ExportStream.prototype, "cleanup").mockImplementation(mockStream.cleanup);
+
+      const command = new Export([], {} as any);
+      await command["processExport"](mockStream as any);
+
+      expect(mockStream.onEvent).toHaveBeenCalled();
+    });
+
+    it("should handle entity events", async () => {
+      const mockStream = {
+        execute: vi.fn().mockReturnValue(
+          of({
+            success: true,
+            summary: {
+              successCount: 1,
+              errorCount: 0,
+              processedTypes: { page: 1 },
+              duration: 100
+            } as ExportSummary
+          })
+        ),
+        onEvent: vi.fn().mockReturnValue(of({ type: "entity", entity: { id: "123", type: "page" } })),
+        stop: vi.fn(),
+        cleanup: vi.fn().mockReturnValue(of(undefined))
+      };
+
+      vi.spyOn(ExportStream.prototype, "execute").mockImplementation(mockStream.execute);
+      vi.spyOn(ExportStream.prototype, "onEvent").mockImplementation(mockStream.onEvent);
+      vi.spyOn(ExportStream.prototype, "cleanup").mockImplementation(mockStream.cleanup);
+
+      const command = new Export([], {} as any);
+      await command["processExport"](mockStream as any, undefined, true);
+
+      expect(mockStream.onEvent).toHaveBeenCalled();
+    });
+
+    it("should handle error events", async () => {
+      const mockStream = {
+        execute: vi.fn().mockReturnValue(
+          of({
+            success: true,
+            summary: {
+              successCount: 0,
+              errorCount: 1,
+              processedTypes: {},
+              duration: 100
+            } as ExportSummary
+          })
+        ),
+        onEvent: vi
+          .fn()
+          .mockReturnValue(of({ type: "error", error: new Error("Test error"), entity: { id: "123", type: "page" } })),
+        stop: vi.fn(),
+        cleanup: vi.fn().mockReturnValue(of(undefined))
+      };
+
+      vi.spyOn(ExportStream.prototype, "execute").mockImplementation(mockStream.execute);
+      vi.spyOn(ExportStream.prototype, "onEvent").mockImplementation(mockStream.onEvent);
+      vi.spyOn(ExportStream.prototype, "cleanup").mockImplementation(mockStream.cleanup);
+
+      const command = new Export([], {} as any);
+      vi.spyOn(command, "warn" as any).mockImplementation(() => {});
+
+      await command["processExport"](mockStream as any);
+
+      expect(command.warn).toHaveBeenCalledWith(expect.stringContaining("Failed to process page 123"));
     });
   });
 });

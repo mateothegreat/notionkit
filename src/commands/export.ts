@@ -117,14 +117,13 @@ export default class Export extends Command {
   /**
    * Process the export stream with progress indication.
    */
-  private async processExport(stream: ExportStream, target?: string, verbose?: boolean): Promise<void> {
-    const spinner = ora("Initializing export...").start();
-    let progressInterval: NodeJS.Timeout | null = null;
-    let currentProgress = { complete: 0, total: 0 };
+  private processExport(stream: ExportStream, target?: string, verbose?: boolean): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      const spinner = ora("Initializing export...").start();
+      let currentProgress = { complete: 0, total: 0 };
 
-    try {
       // Subscribe to events
-      stream.onEvent().subscribe((event: ExportEventPayload) => {
+      const eventSubscription = stream.onEvent().subscribe((event: ExportEventPayload) => {
         switch (event.type) {
           case "start":
             spinner.text = "Starting export...";
@@ -149,28 +148,49 @@ export default class Export extends Command {
       });
 
       // Execute the export
-      const result = await stream.execute().toPromise();
+      const executeSubscription = stream.execute().subscribe({
+        next: (result) => {
+          if (result?.success) {
+            spinner.succeed("Export completed successfully!");
+            this.displaySummary(result.summary);
+          } else {
+            spinner.fail("Export failed!");
+            if (result?.summary) {
+              this.displaySummary(result.summary);
+            }
+            this.exit(1);
+          }
+        },
+        error: (error: any) => {
+          spinner.fail(`Export failed: ${error.message}`);
+          log.error("Export failed", error);
 
-      if (result?.success) {
-        spinner.succeed("Export completed successfully!");
-        this.displaySummary(result.summary);
-      } else {
-        spinner.fail("Export failed!");
-        if (result?.summary) {
-          this.displaySummary(result.summary);
+          // Cleanup
+          eventSubscription.unsubscribe();
+          stream.cleanup().subscribe({
+            complete: () => {
+              this.exit(1);
+            },
+            error: () => {
+              this.exit(1);
+            }
+          });
+        },
+        complete: () => {
+          // Cleanup
+          eventSubscription.unsubscribe();
+          stream.cleanup().subscribe({
+            complete: () => {
+              resolve();
+            },
+            error: (cleanupError) => {
+              log.error("Cleanup failed", cleanupError);
+              resolve(); // Still resolve as main operation completed
+            }
+          });
         }
-        this.exit(1);
-      }
-    } catch (error: any) {
-      spinner.fail(`Export failed: ${error.message}`);
-      log.error("Export failed", error);
-      this.exit(1);
-    } finally {
-      if (progressInterval) {
-        clearInterval(progressInterval);
-      }
-      await stream.cleanup();
-    }
+      });
+    });
   }
 
   /**
