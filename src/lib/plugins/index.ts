@@ -61,28 +61,14 @@ export class ExportPluginManager {
   private eventStream$ = new Subject<ExportEventPayload>();
   private silent = false;
 
-  constructor(private pluginClasses: Array<new () => ExportPlugin>) {
+  constructor(pluginInstances: ExportPlugin[] = []) {
     // Enable silent mode during testing
     this.silent = process.env.NODE_ENV === "test" || process.env.VITEST === "true";
-    this.initializePlugins();
+    this.plugins = pluginInstances;
     this.setupEventRouting();
   }
 
-  /**
-   * Initialize plugin instances from classes.
-   */
-  private initializePlugins(): void {
-    this.pluginClasses.forEach((PluginClass) => {
-      try {
-        const plugin = new PluginClass();
-        this.plugins.push(plugin);
-      } catch (error) {
-        if (!this.silent) {
-          console.error(`Failed to initialize plugin ${PluginClass.name}`, error);
-        }
-      }
-    });
-  }
+
 
   /**
    * Setup event routing to plugins.
