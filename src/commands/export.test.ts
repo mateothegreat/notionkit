@@ -1,5 +1,4 @@
 import { of } from "rxjs";
-import { inspect } from "util";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ExportStream } from "../lib/services/export-stream";
 import type { ExportSummary } from "../lib/types";
@@ -55,13 +54,11 @@ describe("Export Command", () => {
 
   describe("basic functionality", () => {
     it("should have correct description", () => {
-      console.log(inspect(Export.description, { colors: true, compact: false }));
       expect(Export.description).toBe("Export Notion workspace, database, or page to desired format");
     });
 
     it("should have required flags", () => {
       const flags = Export.flags;
-      console.log(inspect(Object.keys(flags), { colors: true, compact: false }));
       expect(flags.token).toBeDefined();
       expect(flags.token.required).toBe(true);
       expect(flags.workspace).toBeDefined();
@@ -71,7 +68,6 @@ describe("Export Command", () => {
 
     it("should have optional target argument", () => {
       const args = Export.args;
-      console.log(inspect(args, { colors: true, compact: false }));
       // Export.args is defined as an empty object, not an array
       expect(args).toBeDefined();
       expect(typeof args).toBe("object");
@@ -112,9 +108,6 @@ describe("Export Command", () => {
 
       await command.run();
 
-      console.log(
-        inspect({ executeCalledTimes: mockExportStream.execute.mock.calls.length }, { colors: true, compact: false })
-      );
       expect(mockExportStream.execute).toHaveBeenCalled();
     });
 
@@ -151,7 +144,6 @@ describe("Export Command", () => {
 
       await command.run();
 
-      console.log(inspect({ workspaceTest: "passed" }, { colors: true, compact: false }));
       expect(mockExportStream.execute).toHaveBeenCalled();
     });
 
@@ -198,7 +190,6 @@ describe("Export Command", () => {
 
       await command.run();
 
-      console.log(inspect({ customConfigTest: "passed" }, { colors: true, compact: false }));
       expect(mockExportStream.execute).toHaveBeenCalled();
     });
 
@@ -235,7 +226,6 @@ describe("Export Command", () => {
 
       await command.run();
 
-      console.log(inspect({ targetTest: "passed" }, { colors: true, compact: false }));
       expect(mockExportStream.execute).toHaveBeenCalled();
     });
   });
@@ -266,7 +256,6 @@ describe("Export Command", () => {
       const command = new Export([], {} as any);
       const result = await command["processExport"](mockStream as any);
 
-      console.log(inspect({ executeCalls: mockStream.execute.mock.calls }, { colors: true, compact: false }));
       expect(mockStream.execute).toHaveBeenCalled();
     });
 
@@ -298,7 +287,6 @@ describe("Export Command", () => {
       try {
         await command["processExport"](mockStream as any);
       } catch (error) {
-        console.log(inspect(error, { colors: true, compact: false }));
         expect(error).toBeDefined();
       }
     });
@@ -336,7 +324,6 @@ describe("Export Command", () => {
       const command = new Export([], {} as any);
       await command["processExport"](mockStream as any);
 
-      console.log(inspect({ progressEvents: true }, { colors: true, compact: false }));
       expect(mockStream.onEvent).toHaveBeenCalled();
     });
   });

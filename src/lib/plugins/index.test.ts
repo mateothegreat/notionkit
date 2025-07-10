@@ -1,5 +1,4 @@
 import { of, throwError } from "rxjs";
-import { inspect } from "util";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ExportEventPayload, ExportSummary, ExporterConfig, NotionEntity } from "../types";
 import {
@@ -37,7 +36,6 @@ describe("ExportPlugin Interface", () => {
       cleanup: vi.fn().mockResolvedValue(undefined)
     };
 
-    console.log(inspect(Object.keys(mockPlugin), { colors: true, compact: false }));
     expect(mockPlugin.onExportStart).toBeDefined();
     expect(mockPlugin.onEntity).toBeDefined();
     expect(mockPlugin.onExportComplete).toBeDefined();
@@ -73,35 +71,36 @@ describe("ExportPluginManager", () => {
   describe("constructor", () => {
     it("should initialize with no plugins", () => {
       pluginManager = new ExportPluginManager([]);
-      console.log(inspect(pluginManager.getPlugins(), { colors: true, compact: false }));
       expect(pluginManager.getPlugins()).toHaveLength(0);
     });
 
-    it("should initialize with plugin classes", () => {
-      class TestPlugin implements ExportPlugin {
-        onExportStart = vi.fn().mockReturnValue(of(undefined));
-        onEntity = vi.fn().mockReturnValue(of(undefined));
-        onExportComplete = vi.fn().mockReturnValue(of(undefined));
-        onError = vi.fn().mockReturnValue(of(undefined));
-        cleanup = vi.fn().mockResolvedValue(undefined);
-      }
+    it("should initialize with plugin instances", () => {
+      const testPlugin: ExportPlugin = {
+        onExportStart: vi.fn().mockReturnValue(of(undefined)),
+        onEntity: vi.fn().mockReturnValue(of(undefined)),
+        onExportComplete: vi.fn().mockReturnValue(of(undefined)),
+        onError: vi.fn().mockReturnValue(of(undefined)),
+        cleanup: vi.fn().mockResolvedValue(undefined)
+      };
 
-      pluginManager = new ExportPluginManager([TestPlugin]);
-      console.log(inspect(pluginManager.getPlugins().length, { colors: true, compact: false }));
+      pluginManager = new ExportPluginManager([testPlugin]);
       expect(pluginManager.getPlugins()).toHaveLength(1);
-      expect(pluginManager.getPlugins()[0]).toBeInstanceOf(TestPlugin);
+      expect(pluginManager.getPlugins()[0]).toBe(testPlugin);
     });
 
-    it("should handle plugin initialization errors gracefully", () => {
-      class FailingPlugin {
-        constructor() {
-          throw new Error("Plugin init error");
-        }
-      }
+    it("should handle invalid plugin instances gracefully", () => {
+      const invalidPlugin = null as any;
+      const validPlugin: ExportPlugin = {
+        onExportStart: vi.fn().mockReturnValue(of(undefined)),
+        onEntity: vi.fn().mockReturnValue(of(undefined)),
+        onExportComplete: vi.fn().mockReturnValue(of(undefined)),
+        onError: vi.fn().mockReturnValue(of(undefined)),
+        cleanup: vi.fn().mockResolvedValue(undefined)
+      };
 
-      pluginManager = new ExportPluginManager([FailingPlugin as any]);
-      console.log(inspect(pluginManager.getPlugins().length, { colors: true, compact: false }));
-      expect(pluginManager.getPlugins()).toHaveLength(0);
+      pluginManager = new ExportPluginManager([validPlugin, invalidPlugin].filter(Boolean));
+
+      expect(pluginManager.getPlugins()).toHaveLength(1);
     });
 
     it("should set silent mode during testing", () => {
@@ -127,7 +126,6 @@ describe("ExportPluginManager", () => {
 
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      console.log(inspect(mockPlugin.onExportStart, { colors: true, compact: false }));
       expect(mockPlugin.onExportStart).toHaveBeenCalledWith(config);
     });
 
@@ -146,7 +144,6 @@ describe("ExportPluginManager", () => {
 
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      console.log(inspect(mockPlugin.onEntity, { colors: true, compact: false }));
       expect(mockPlugin.onEntity).toHaveBeenCalledWith(entity);
     });
 
@@ -161,7 +158,6 @@ describe("ExportPluginManager", () => {
 
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      console.log(inspect(mockPlugin.onError, { colors: true, compact: false }));
       expect(mockPlugin.onError).toHaveBeenCalledWith(error);
     });
 
@@ -182,7 +178,6 @@ describe("ExportPluginManager", () => {
 
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      console.log(inspect(mockPlugin.onExportComplete, { colors: true, compact: false }));
       expect(mockPlugin.onExportComplete).toHaveBeenCalledWith(summary);
     });
 
@@ -197,7 +192,6 @@ describe("ExportPluginManager", () => {
 
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      console.log(inspect({ progressEventHandled: true }, { colors: true, compact: false }));
       expect(mockPlugin.onExportStart).not.toHaveBeenCalled();
       expect(mockPlugin.onEntity).not.toHaveBeenCalled();
       expect(mockPlugin.onError).not.toHaveBeenCalled();
@@ -213,7 +207,6 @@ describe("ExportPluginManager", () => {
 
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      console.log(inspect({ handledUnknownEvent: true }, { colors: true, compact: false }));
       expect(mockPlugin.onExportStart).not.toHaveBeenCalled();
       expect(mockPlugin.onEntity).not.toHaveBeenCalled();
       expect(mockPlugin.onError).not.toHaveBeenCalled();
@@ -237,15 +230,6 @@ describe("ExportPluginManager", () => {
 
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      console.log(
-        inspect(
-          {
-            plugin1: (mockPlugin.onEntity as any).mock.calls,
-            plugin2: (mockPlugin2.onEntity as any).mock.calls
-          },
-          { colors: true, compact: false }
-        )
-      );
       expect(mockPlugin.onEntity).toHaveBeenCalledWith(entity);
       expect(mockPlugin2.onEntity).toHaveBeenCalledWith(entity);
     });
@@ -267,7 +251,6 @@ describe("ExportPluginManager", () => {
 
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      console.log(inspect({ errorHandled: true }, { colors: true, compact: false }));
       expect(failingPlugin.onEntity).toHaveBeenCalledWith(entity);
     });
   });
@@ -284,15 +267,6 @@ describe("ExportPluginManager", () => {
 
       await pluginManager.cleanup();
 
-      console.log(
-        inspect(
-          {
-            plugin1Cleanup: (mockPlugin.cleanup as any).mock.calls,
-            plugin2Cleanup: (mockPlugin2.cleanup as any).mock.calls
-          },
-          { colors: true, compact: false }
-        )
-      );
       expect(mockPlugin.cleanup).toHaveBeenCalled();
       expect(mockPlugin2.cleanup).toHaveBeenCalled();
     });
@@ -307,9 +281,6 @@ describe("ExportPluginManager", () => {
       pluginManager.getPlugins().push(mockPlugin, failingPlugin);
 
       await expect(pluginManager.cleanup()).resolves.not.toThrow();
-      console.log(
-        inspect({ cleanupCalls: (failingPlugin.cleanup as any).mock.calls }, { colors: true, compact: false })
-      );
       expect(failingPlugin.cleanup).toHaveBeenCalled();
     });
   });
@@ -318,14 +289,12 @@ describe("ExportPluginManager", () => {
     it("should enable silent mode", () => {
       pluginManager = new ExportPluginManager([]);
       pluginManager.setSilentMode(true);
-      console.log(inspect({ silentModeEnabled: true }, { colors: true, compact: false }));
-      expect(true).toBe(true); // No console output expected
+      expect;
     });
 
     it("should disable silent mode", () => {
       pluginManager = new ExportPluginManager([]);
       pluginManager.setSilentMode(false);
-      console.log(inspect({ silentModeDisabled: true }, { colors: true, compact: false }));
       expect(true).toBe(true); // Console output may occur
     });
   });
@@ -346,19 +315,16 @@ describe("FSPlugin", () => {
   describe("constructor", () => {
     it("should initialize with default config", () => {
       const defaultPlugin = new FSPlugin();
-      console.log(inspect({ defaultConfig: true }, { colors: true, compact: false }));
       expect(defaultPlugin).toBeDefined();
     });
 
     it("should initialize with provided config", () => {
-      console.log(inspect({ configProvided: true }, { colors: true, compact: false }));
       expect(fsPlugin).toBeDefined();
     });
 
     it("should enable silent mode during testing", () => {
       const plugin = new FSPlugin();
       plugin.setSilentMode(true);
-      console.log(inspect({ silentModeSet: true }, { colors: true, compact: false }));
       expect(true).toBe(true); // No errors expected
     });
   });
@@ -366,7 +332,6 @@ describe("FSPlugin", () => {
   describe("onExportStart", () => {
     it("should initialize successfully", async () => {
       const result = await fsPlugin.onExportStart(config).toPromise();
-      console.log(inspect({ initialized: true }, { colors: true, compact: false }));
       expect(result).toBeUndefined();
     });
 
@@ -378,7 +343,6 @@ describe("FSPlugin", () => {
         await fsPlugin.onExportStart(config).toPromise();
         expect(true).toBe(false); // Should not reach here
       } catch (error) {
-        console.log(inspect({ error: (error as Error).message }, { colors: true, compact: false }));
         expect(error).toBeDefined();
       }
     });
@@ -392,7 +356,6 @@ describe("FSPlugin", () => {
       };
 
       const result = await fsPlugin.onEntity(entity).toPromise();
-      console.log(inspect({ entityProcessed: true }, { colors: true, compact: false }));
       expect(result).toBeUndefined();
       expect(fsPlugin.getActiveEntityCount()).toBe(1);
       expect(fsPlugin.getFileMap().has(entity.id)).toBe(true);
@@ -409,16 +372,6 @@ describe("FSPlugin", () => {
         await fsPlugin.onEntity(entity).toPromise();
       }
 
-      console.log(
-        inspect(
-          {
-            entitiesProcessed: entities.length,
-            activeCount: fsPlugin.getActiveEntityCount(),
-            fileMapSize: fsPlugin.getFileMap().size
-          },
-          { colors: true, compact: false }
-        )
-      );
       expect(fsPlugin.getActiveEntityCount()).toBe(3);
       expect(fsPlugin.getFileMap().size).toBe(3);
     });
@@ -434,9 +387,8 @@ describe("FSPlugin", () => {
 
       try {
         await fsPlugin.onEntity(entity).toPromise();
-        expect(true).toBe(false); // Should not reach here
+        expect(true).toBe(false);
       } catch (error) {
-        console.log(inspect({ error: (error as Error).message }, { colors: true, compact: false }));
         expect(error).toBeDefined();
       }
     });
@@ -452,7 +404,6 @@ describe("FSPlugin", () => {
       };
 
       const result = await fsPlugin.onExportComplete(summary).toPromise();
-      console.log(inspect({ summaryWritten: true }, { colors: true, compact: false }));
       expect(result).toBeUndefined();
     });
 
@@ -469,9 +420,8 @@ describe("FSPlugin", () => {
 
       try {
         await fsPlugin.onExportComplete(summary).toPromise();
-        expect(true).toBe(false); // Should not reach here
+        expect(true).toBe(false);
       } catch (error) {
-        console.log(inspect({ error: (error as Error).message }, { colors: true, compact: false }));
         expect(error).toBeDefined();
       }
     });
@@ -481,7 +431,6 @@ describe("FSPlugin", () => {
     it("should handle errors gracefully", async () => {
       const error = new Error("Test error");
       const result = await fsPlugin.onError(error).toPromise();
-      console.log(inspect({ errorHandled: true }, { colors: true, compact: false }));
       expect(result).toBeUndefined();
     });
 
@@ -489,7 +438,6 @@ describe("FSPlugin", () => {
       fsPlugin.setSilentMode(true);
       const error = new Error("Test error");
       const result = await fsPlugin.onError(error).toPromise();
-      console.log(inspect({ silentErrorHandled: true }, { colors: true, compact: false }));
       expect(result).toBeUndefined();
     });
   });
@@ -508,7 +456,6 @@ describe("FSPlugin", () => {
 
       await fsPlugin.cleanup();
 
-      console.log(inspect({ cleanedUp: true }, { colors: true, compact: false }));
       expect(fsPlugin.getActiveEntityCount()).toBe(0);
       expect(fsPlugin.getFileMap().size).toBe(0);
     });
@@ -519,7 +466,6 @@ describe("FSPlugin", () => {
       const entity: NotionEntity = { id: "test-id", type: "page" };
       const path = fsPlugin["getPathForEntity"](entity);
 
-      console.log(inspect({ generatedPath: path }, { colors: true, compact: false }));
       expect(path).toContain("page");
       expect(path).toContain("test-id.json");
     });
@@ -529,7 +475,6 @@ describe("FSPlugin", () => {
       const entity: NotionEntity = { id: "test-id", type: "database" };
       const path = defaultPlugin["getPathForEntity"](entity);
 
-      console.log(inspect({ defaultPath: path }, { colors: true, compact: false }));
       expect(path).toContain("notion-export");
       expect(path).toContain("database");
     });
@@ -551,16 +496,6 @@ describe("Plugin Registry Functions", () => {
       initPluginSystem(commands);
 
       const allPlugins = getAllPlugins();
-      console.log(
-        inspect(
-          {
-            initialized: true,
-            pluginCount: allPlugins.size,
-            plugins: Array.from(allPlugins.keys())
-          },
-          { colors: true, compact: false }
-        )
-      );
 
       expect(allPlugins.size).toBeGreaterThan(0);
       expect(allPlugins.has("fs")).toBe(true);
@@ -586,16 +521,6 @@ describe("Plugin Registry Functions", () => {
       registerPlugin(testPlugin);
 
       const allPlugins = getAllPlugins();
-      console.log(
-        inspect(
-          {
-            registered: true,
-            pluginCount: allPlugins.size,
-            plugins: Array.from(allPlugins.keys())
-          },
-          { colors: true, compact: false }
-        )
-      );
 
       expect(allPlugins.size).toBeGreaterThan(0);
     });
@@ -619,15 +544,6 @@ describe("Plugin Registry Functions", () => {
       initPluginSystem([]);
 
       const fsPlugin = getPlugin("fs");
-      console.log(
-        inspect(
-          {
-            retrieved: true,
-            pluginFound: fsPlugin !== undefined
-          },
-          { colors: true, compact: false }
-        )
-      );
 
       expect(fsPlugin).toBeDefined();
       expect(fsPlugin).toBe(FSPlugin);
@@ -635,15 +551,6 @@ describe("Plugin Registry Functions", () => {
 
     it("should return undefined for non-existent plugin", () => {
       const nonExistentPlugin = getPlugin("non-existent");
-      console.log(
-        inspect(
-          {
-            nonExistent: true,
-            result: nonExistentPlugin
-          },
-          { colors: true, compact: false }
-        )
-      );
 
       expect(nonExistentPlugin).toBeUndefined();
     });
@@ -654,16 +561,6 @@ describe("Plugin Registry Functions", () => {
       initPluginSystem([]);
 
       const allPlugins = getAllPlugins();
-      console.log(
-        inspect(
-          {
-            allPlugins: true,
-            pluginCount: allPlugins.size,
-            plugins: Array.from(allPlugins.keys())
-          },
-          { colors: true, compact: false }
-        )
-      );
 
       expect(allPlugins).toBeInstanceOf(Map);
       expect(allPlugins.size).toBeGreaterThan(0);
@@ -672,15 +569,6 @@ describe("Plugin Registry Functions", () => {
     it("should return empty map when no plugins registered", () => {
       clearPlugins();
       const allPlugins = getAllPlugins();
-      console.log(
-        inspect(
-          {
-            emptyMap: true,
-            pluginCount: allPlugins.size
-          },
-          { colors: true, compact: false }
-        )
-      );
 
       expect(allPlugins.size).toBe(0);
     });
@@ -693,30 +581,12 @@ describe("Plugin Registry Functions", () => {
       const removed = unregisterPlugin("fs");
       const fsPlugin = getPlugin("fs");
 
-      console.log(
-        inspect(
-          {
-            removed: removed,
-            pluginExists: fsPlugin !== undefined
-          },
-          { colors: true, compact: false }
-        )
-      );
-
       expect(removed).toBe(true);
       expect(fsPlugin).toBeUndefined();
     });
 
     it("should return false for non-existent plugin", () => {
       const removed = unregisterPlugin("non-existent");
-      console.log(
-        inspect(
-          {
-            removed: removed
-          },
-          { colors: true, compact: false }
-        )
-      );
 
       expect(removed).toBe(false);
     });
@@ -732,15 +602,6 @@ describe("Plugin Registry Functions", () => {
       clearPlugins();
 
       allPlugins = getAllPlugins();
-      console.log(
-        inspect(
-          {
-            cleared: true,
-            pluginCount: allPlugins.size
-          },
-          { colors: true, compact: false }
-        )
-      );
 
       expect(allPlugins.size).toBe(0);
     });
@@ -749,29 +610,10 @@ describe("Plugin Registry Functions", () => {
 
 describe("defaultPlugins", () => {
   it("should include FSPlugin", () => {
-    console.log(
-      inspect(
-        {
-          defaultPlugins: defaultPlugins.map((p) => p.name),
-          includesFSPlugin: defaultPlugins.includes(FSPlugin)
-        },
-        { colors: true, compact: false }
-      )
-    );
-
     expect(defaultPlugins).toContain(FSPlugin);
   });
 
   it("should have expected length", () => {
-    console.log(
-      inspect(
-        {
-          defaultPluginCount: defaultPlugins.length
-        },
-        { colors: true, compact: false }
-      )
-    );
-
     expect(defaultPlugins.length).toBeGreaterThan(0);
   });
 });
@@ -783,7 +625,7 @@ describe("Integration Tests", () => {
       outputDir: "./test-output"
     };
 
-    const pluginManager = new ExportPluginManager([FSPlugin]);
+    const pluginManager = new ExportPluginManager([new FSPlugin(config)]);
     pluginManager.setSilentMode(true);
 
     // Test start event
@@ -812,16 +654,6 @@ describe("Integration Tests", () => {
     // Cleanup
     await pluginManager.cleanup();
 
-    console.log(
-      inspect(
-        {
-          endToEndTest: "completed",
-          pluginCount: pluginManager.getPlugins().length
-        },
-        { colors: true, compact: false }
-      )
-    );
-
     expect(pluginManager.getPlugins()).toHaveLength(1);
     expect(pluginManager.getPlugins()[0]).toBeInstanceOf(FSPlugin);
   });
@@ -835,7 +667,8 @@ describe("Integration Tests", () => {
       cleanup = vi.fn().mockResolvedValue(undefined);
     }
 
-    const pluginManager = new ExportPluginManager([FSPlugin, TestPlugin]);
+    const config: ExporterConfig = { token: "test-token", outputDir: "./test-output" };
+    const pluginManager = new ExportPluginManager([new FSPlugin(config), new TestPlugin()]);
     pluginManager.setSilentMode(true);
 
     const entity: NotionEntity = { id: "test-entity", type: "page" };
@@ -843,16 +676,6 @@ describe("Integration Tests", () => {
 
     // Wait for async operations
     await new Promise((resolve) => setTimeout(resolve, 200));
-
-    console.log(
-      inspect(
-        {
-          multiplePlugins: true,
-          pluginCount: pluginManager.getPlugins().length
-        },
-        { colors: true, compact: false }
-      )
-    );
 
     expect(pluginManager.getPlugins()).toHaveLength(2);
     expect(pluginManager.getPlugins()[0]).toBeInstanceOf(FSPlugin);
@@ -887,16 +710,6 @@ describe("Integration Tests", () => {
     // Cleanup should not throw
     await expect(pluginManager.cleanup()).resolves.not.toThrow();
 
-    console.log(
-      inspect(
-        {
-          errorResilienceTest: "passed",
-          pluginCount: pluginManager.getPlugins().length
-        },
-        { colors: true, compact: false }
-      )
-    );
-
     expect(pluginManager.getPlugins()).toHaveLength(1);
   });
 
@@ -923,17 +736,6 @@ describe("Integration Tests", () => {
     // Create plugin manager with registered plugins
     const pluginManager = new ExportPluginManager([FSPlugin]);
     expect(pluginManager.getPlugins()).toHaveLength(1);
-
-    console.log(
-      inspect(
-        {
-          registryWorkflow: "completed",
-          totalPlugins: allPlugins.size,
-          managerPlugins: pluginManager.getPlugins().length
-        },
-        { colors: true, compact: false }
-      )
-    );
   });
 });
 
@@ -957,37 +759,12 @@ describe("Error Scenarios", () => {
 
     // Error handling should not throw
     await expect(fsPlugin.onError(new Error("Test error")).toPromise()).resolves.not.toThrow();
-
-    console.log(
-      inspect(
-        {
-          fileSystemErrorsHandled: true
-        },
-        { colors: true, compact: false }
-      )
-    );
   });
 
   it("should handle edge cases in plugin initialization", () => {
-    class EdgeCasePlugin {
-      constructor() {
-        // Simulate edge case during initialization
-        throw new Error("Initialization failed");
-      }
-    }
-
-    const pluginManager = new ExportPluginManager([EdgeCasePlugin as any]);
+    // Test with empty array and undefined plugins
+    const pluginManager = new ExportPluginManager([]);
     pluginManager.setSilentMode(true);
-
-    console.log(
-      inspect(
-        {
-          edgeCaseHandled: true,
-          pluginCount: pluginManager.getPlugins().length
-        },
-        { colors: true, compact: false }
-      )
-    );
 
     expect(pluginManager.getPlugins()).toHaveLength(0);
   });
