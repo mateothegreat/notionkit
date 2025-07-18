@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json.schemastore.org/package",
+  "type": "module",
+  "name": "@notion.codes/sdk",
+  "version": "0.0.0",
+  "description": "A type-safe, reactive Notion SDK with schema validation and fluent API",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "exports": {
+    "./dist/*": {
+      "types": "./dist/*.ts",
+      "import": "./dist/*.ts"
+    },
+    "./*": {
+      "types": "./src/*.d.ts",
+      "import": "./src/*.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "clean": "find . -type d \\( -name 'node_modules' -o -name 'dist' \\) -exec rm -rf {} + && find . -name 'p*-lock.*' -delete",
+    "clean:tsc": "find . -type f \\( -name '*.js' -o -name '*.map' -o -name '*.d.ts' \\) -delete",
+    "test": "vitest run",
+    "test:coverage": "vitest --coverage run",
+    "test:watch": "vitest --watch",
+    "lint": "eslint src/**/*.ts",
+    "format": "prettier --write src/**/*.ts",
+    "check": "tsc --noEmit",
+    "dev": "vitest --watch"
+  },
+  "keywords": [
+    "notion",
+    "api",
+    "typescript",
+    "reactive",
+    "arktype",
+    "rxjs",
+    "type-safe"
+  ],
+  "dependencies": {
+    "@mateothegreat/ts-kit": "^0.0.34",
+    "ansis": "^4.1.0",
+    "arktype": "^2.1.20",
+    "cli-progress": "^3.12.0",
+    "ora": "^8.2.0",
+    "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "@ark/attest": "^0.48.2",
+    "@dotenvx/dotenvx": "^1.47.6",
+    "@notion.codes/types": "workspace:*",
+    "@notionhq/client": "^4.0.1",
+    "@types/cli-progress": "^3.11.6",
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^24.0.14",
+    "@typescript-eslint/eslint-plugin": "^8.37.0",
+    "@typescript-eslint/parser": "^8.37.0",
+    "@vitest/coverage-v8": "^3.2.4",
+    "eslint": "^9.31.0",
+    "fs-extra": "^11.3.0",
+    "prettier": "^3.6.2",
+    "ts-morph": "^26.0.0",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3",
+    "vite-tsconfig-paths": "^5.1.4",
+    "vitest": "^3.2.4"
+  },
+  "peerDependencies": {
+    "typescript": ">=5.8.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mateothegreat/notioncodes",
+    "directory": "packages/sdk"
+  },
+  "author": {
+    "name": "Matthew Davis",
+    "email": "matthew@matthewdavis.io",
+    "url": "https://matthewdavis.io"
+  }
+}

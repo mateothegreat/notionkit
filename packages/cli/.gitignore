@@ -1,0 +1,9 @@
+.env
+dist
+tmp
+node_modules
+**/notion-export*
+dump*
+coverage
+.vitest
+test-output/

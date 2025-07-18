@@ -1,0 +1,15 @@
+{
+  "name": "@notion.codes/dev",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "clean": "find . -type d \\( -name 'node_modules' -o -name 'dist' \\) -exec rm -rf {} + && find . -name 'p*-lock.*' -delete"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "workspaces": [
+    "packages/*"
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "operator": "search",
+  "scenario": {
+    "name": "short timeout",
+    "timeout": 1000,
+    "results": 0,
+    "emits": 0
+  },
+  "request": {
+    "query": "",
+    "filter": {
+      "value": "page",
+      "property": "object"
+    },
+    "page_size": 1
+  },
+  "httpConfig": {
+    "baseUrl": "https://api.notion.com/v1",
+    "timeout": 1000
+  },
+  "states": [
+    {
+      "stage": "requesting",
+      "requests": 0,
+      "total": 0,
+      "errors": 0
+    },
+    {
+      "stage": "error",
+      "requests": 0,
+      "total": 0,
+      "errors": 0,
+      "message": "operation timed out after 1000ms"
+    }
+  ],
+  "results": [],
+  "created": "2025-07-16T17:04:13.885Z"
+}
