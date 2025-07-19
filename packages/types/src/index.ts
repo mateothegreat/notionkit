@@ -3,6 +3,7 @@ export * from "./blocks";
 export * from "./brands";
 export * from "./common";
 export * from "./databases";
+export * from "./operations/get";
 export * from "./pages";
 export * from "./primitives";
 export * from "./properties";

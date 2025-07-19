@@ -7,7 +7,7 @@
     "verbatimModuleSyntax": true,
     "sourceMap": true,
     "strict": true,
-    "strictNullChecks": false,
+    "strictNullChecks": true,
     "noImplicitAny": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitReturns": true,

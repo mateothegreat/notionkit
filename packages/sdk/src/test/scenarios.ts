@@ -1,11 +1,12 @@
-import type { Search } from "@notion.codes/types";
-
-export type Scenario = {
+export type Scenario<T> = {
   name: string;
-  request: Search;
-  expected?: {
+  request: T;
+  expected: {
+    requests: number;
+  };
+  limits?: {
     results?: number;
-    pages?: number;
+    requests?: number;
   };
   timeout?: number;
 };

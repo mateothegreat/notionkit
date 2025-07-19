@@ -1,5 +1,5 @@
 {
-  "name": "@mateothegreat/notion-sync",
+  "name": "@mateothegreat/notionkit-cli",
   "version": "1.0.0",
   "description": "",
   "type": "module",
@@ -25,8 +25,8 @@
     ".": "./src/index.ts"
   },
   "devDependencies": {
-    "@notion.codes/types": "workspace:*",
-    "@notion.codes/sdk": "workspace:*",
+    "@mateothegreat/notionkit-sdk": "workspace:*",
+    "@mateothegreat/notionkit-types": "workspace:*",
     "@notionhq/client": "4.0.1",
     "@oclif/core": "4.5.1",
     "@oclif/prettier-config": "0.2.1",
@@ -61,8 +61,6 @@
     ]
   },
   "dependencies": {
-    "@notion.codes/sdk": "workspace:*",
-    "@notion.codes/types": "workspace:*",
     "@inquirer/prompts": "7.6.0",
     "@oclif/plugin-version": "2.2.31",
     "ansis": "4.1.0",

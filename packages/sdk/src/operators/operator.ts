@@ -1,5 +1,7 @@
+import type { Reporter } from "@mateothegreat/ts-kit/observability/metrics/reporter";
 import { randomUUID } from "node:crypto";
-import type { HTTPConfig, HTTPResponse } from "../util/http/client";
+import type { HTTPConfig } from "../util/http/config";
+import { HTTPResponse } from "../util/http/response";
 
 /**
  * Configuration for operator execution.
@@ -14,7 +16,10 @@ export class OperatorConfig {
   constructor(config: Partial<OperatorConfig> = {}) {
     this.cache = config.cache;
     this.timeout = config.timeout;
-    this.limits = config.limits;
+    this.limits = config.limits ?? {
+      pages: 1000,
+      results: 1000
+    };
   }
 }
 
@@ -37,9 +42,9 @@ export class OperatorMetadata {
 }
 
 export type OperatorReport = {
-  stage: "requesting" | "processing" | "complete";
+  stage: "initializing" | "requesting" | "processing" | "complete";
   requests: number;
-  total: number;
+  items: number;
   cursor?: string | null;
   errors: number;
   message?: string;
@@ -74,5 +79,10 @@ export abstract class Operator<TPayload, TResponse> {
    *
    * @returns Observable of the response.
    */
-  abstract execute(payload: TPayload, httpConfig: HTTPConfig, operatorConfig: OperatorConfig): HTTPResponse<TResponse>;
+  abstract execute(
+    payload: TPayload,
+    httpConfig: HTTPConfig,
+    operatorConfig: OperatorConfig,
+    reporter?: Reporter<OperatorReport>
+  ): HTTPResponse<TResponse>;
 }

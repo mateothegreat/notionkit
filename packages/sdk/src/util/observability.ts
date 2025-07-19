@@ -40,7 +40,7 @@ export interface MetricsSnapshot {
   /**
    * The total number of items that have been processed.
    */
-  total: number;
+  items: number;
 
   /**
    * The percentage of the requests that are successful.
@@ -88,7 +88,7 @@ export class MetricsReporter {
       successful: 0,
       throughput: 0,
       latency: 0,
-      total: 0,
+      items: 0,
       message: undefined,
       cursor: undefined,
       stage: "idle"
@@ -136,7 +136,7 @@ export class MetricsReporter {
       }
 
       // Handle incremental fields
-      if (typedKey === "requests" || typedKey === "total" || typedKey === "errors") {
+      if (typedKey === "requests" || typedKey === "items" || typedKey === "errors") {
         const currentValue = this.#state[typedKey] as number;
         const deltaValue = delta[typedKey] as number | undefined;
         if (deltaValue !== undefined) {

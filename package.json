@@ -1,5 +1,5 @@
 {
-  "name": "@notion.codes/dev",
+  "name": "@mateothegreat/notionkit",
   "version": "0.0.0",
   "type": "module",
   "private": true,
@@ -10,6 +10,6 @@
     "node": ">=18"
   },
   "workspaces": [
-    "packages/*"
+    "packages/**/*"
   ]
 }

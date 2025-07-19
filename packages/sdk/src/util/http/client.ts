@@ -1,95 +1,11 @@
 import { add, set } from "@mateothegreat/ts-kit/observability/metrics/operations";
 import { Reporter } from "@mateothegreat/ts-kit/observability/metrics/reporter";
-import { Observable, from, race, throwError, timer } from "rxjs";
+import { from, race, throwError, timer } from "rxjs";
 import { fromFetch } from "rxjs/fetch";
 import { catchError, delayWhen, map, retryWhen, scan, shareReplay, switchMap } from "rxjs/operators";
 import type { OperatorReport } from "../../operators/operator";
-
-/**
- * The configuration for an HTTP request.
- */
-export interface HTTPConfig {
-  /**
-   * The base URL of the request.
-   */
-  baseUrl: string;
-
-  /**
-   * The method of the request.
-   */
-  method?: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
-
-  /**
-   * The headers of the request.
-   */
-  headers?: Record<string, string>;
-
-  /**
-   * The timeout for the request in milliseconds.
-   */
-  timeout?: number;
-
-  /**
-   * The maximum number of retries for the request.
-   */
-  retries?: number;
-
-  /**
-   * The delay between retries in milliseconds.
-   */
-  backoff?: number;
-
-  /**
-   * The body of the request.
-   */
-  body?: any;
-}
-
-/**
- * The response returned by the HTTP client for a given request.
- */
-export class HTTPResponse<TResponse> {
-  /**
-   * The observable of the parsed response data.
-   */
-  readonly data$: Observable<TResponse>;
-
-  /**
-   * The observable of the raw response.
-   */
-  readonly raw$: Observable<Response>;
-
-  /**
-   * The metrics reporter.
-   */
-  readonly reporter: Reporter<OperatorReport>;
-
-  /**
-   * The cancel function.
-   */
-  readonly cancel: () => void;
-
-  /**
-   * Creates a new HTTPResponse.
-   *
-   * @param data$ - The observable of the parsed response data.
-   * @param raw$ - The observable of the raw response.
-   * @param reporter - The metrics reporter for the request.
-   */
-  constructor(
-    data$: Observable<TResponse>,
-    raw$: Observable<Response>,
-    reporter: Reporter<OperatorReport>,
-    cancel: () => void
-  ) {
-    this.data$ = data$;
-    this.raw$ = raw$;
-    this.reporter = reporter;
-    this.cancel = () => {
-      cancel();
-    };
-  }
-}
+import type { HTTPConfig } from "./config";
+import { HTTPResponse } from "./response";
 
 /**
  * Execute HTTP requests with comprehensive error handling, retry logic, and observability.
