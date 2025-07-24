@@ -2,7 +2,7 @@ import { setup } from "@ark/attest";
 
 export default () => {
   setup({
-    updateSnapshots: false, // Prevent caching so tests are accurate.
+    updateSnapshots: false, // Prevent caching with arktype's attest() calls.
     skipTypes: false,
     skipInlineInstantiations: false,
     benchPercentThreshold: 20,

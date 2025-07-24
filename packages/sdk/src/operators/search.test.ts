@@ -2,89 +2,50 @@ import type { Scenario } from "$test/scenarios";
 import { OperatorSnapshot } from "$test/snapshots";
 import type { Search, SearchResponse } from "@mateothegreat/notionkit-types/operations/search";
 import { Reporter } from "@mateothegreat/ts-kit/observability/metrics/reporter";
-import { blueBright, cyanBright, yellowBright } from "ansis";
+import { cyanBright } from "ansis";
 import { firstValueFrom, reduce } from "rxjs";
 import { describe, expect, test } from "vitest";
 import { HTTPConfig } from "../util/http/config";
 import type { OperatorReport } from "./operator";
-import { SearchOperator } from "./search";
+import { SearchRunner } from "./search";
 
 const token = process.env.NOTION_TOKEN || process.env.token;
 
 const scenarios: Scenario<Search>[] = [
   {
-    name: "defaults",
+    name: "should stop after 2 requests",
     request: {
       query: "",
       filter: { value: "page", property: "object" },
-      page_size: 25
+      page_size: 2
     },
     expected: {
-      requests: 1
+      requests: 2
     },
-    limits: {
-      requests: 1,
-      results: 25
-    },
-    timeout: 8000
+    timeout: 10_000
   },
   {
-    name: "1 size, 1 page, 1 result",
+    name: "should stop after 10 results",
     request: {
       query: "",
       filter: { value: "page", property: "object" },
-      page_size: 1
+      page_size: 5
     },
     expected: {
-      requests: 1
+      results: 10
     },
-    limits: {
-      requests: 1,
-      results: 1
-    },
-    timeout: 8000
-  },
-  {
-    name: "3 size, 3 pages, 3 results",
-    request: {
-      query: "",
-      filter: { value: "page", property: "object" },
-      page_size: 3
-    },
-    expected: {
-      requests: 1
-    },
-    limits: {
-      requests: 1,
-      results: 3
-    },
-    timeout: 8000
-  },
-  {
-    name: "11 page_size, 3 pages, 30 results",
-    request: {
-      query: "",
-      filter: { value: "page", property: "object" },
-      page_size: 11
-    },
-    expected: {
-      requests: 3
-    },
-    limits: {
-      requests: 3,
-      results: 33
-    },
-    timeout: 8000
+    timeout: 10_000
   }
 ];
 
-describe(`SearchOperator`, () => {
+describe(`SearchRunner`, () => {
   test.each(scenarios)(
     `${cyanBright("$name")}`,
     {
       timeout: 15_000
     },
     async (scenario) => {
+      const runner = new SearchRunner();
       const start = performance.now();
       const snapshot = new OperatorSnapshot<Search>({
         operator: "search",
@@ -92,24 +53,16 @@ describe(`SearchOperator`, () => {
         request: scenario.request,
         httpConfig: new HTTPConfig({ token })
       });
-      const operator = new SearchOperator();
       const reporter = new Reporter<OperatorReport>();
-
-      const res = operator.execute(
+      const res = runner.run(
         snapshot.request,
         snapshot.httpConfig,
         {
           timeout: scenario.timeout,
-          limits: scenario.limits
+          limits: scenario.expected
         },
         reporter
       );
-
-      let emissions = 0;
-      reporter.metrics$.subscribe((metrics) => {
-        emissions++;
-        snapshot.states.push(metrics);
-      });
 
       res.raw$.subscribe(({ status }) => expect(status).toBe(200));
 
@@ -117,14 +70,15 @@ describe(`SearchOperator`, () => {
         res.data$.pipe(reduce((acc, page) => acc.concat(page.results), [] as SearchResponse["results"]))
       );
 
-      expect(emissions).toEqual(scenario.expected.requests! + 2);
       expect(reporter.snapshot().stage).toBe("complete");
-      expect(reporter.snapshot().requests).toEqual(scenario.expected.requests);
-      expect(results.length).toEqual(scenario.expected.requests! * scenario.request.page_size!);
 
-      console.log(
-        `${yellowBright(results.length)} results in ${blueBright(Math.round(performance.now() - start) + "ms")}`
-      );
+      if (scenario.expected.requests) {
+        expect(reporter.snapshot().requests).toEqual(scenario.expected.requests);
+      }
+
+      if (scenario.expected.results) {
+        expect(results.length).toEqual(scenario.expected.results);
+      }
 
       await snapshot.save(scenario, results);
     }

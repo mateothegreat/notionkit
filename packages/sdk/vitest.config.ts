@@ -9,66 +9,51 @@ export default defineConfig({
   test: {
     include,
     exclude,
+    globalSetup: ["vitest.setup.ts"],
     bail: 5,
     maxConcurrency: 10,
-    passWithNoTests: false,
-    isolate: true,
-    silent: false,
-    update: false,
-    hideSkippedTests: true,
     typecheck: {
       enabled: true
     },
     benchmark: {
       outputJson: "./coverage/benchmark.json"
     },
-    globalSetup: ["vitest.setup.ts"],
     pool: "forks",
-
     poolOptions: {
       threads: {
+        singleThread: true,
         execArgv: [
           // https://nodejs.org/api/cli.html#--cpu-prof
           "--cpu-prof",
-          "--cpu-prof-dir=threads-profile",
+          "--cpu-prof-dir=/tmp/threads-profile",
 
           // https://nodejs.org/api/cli.html#--heap-prof
           "--heap-prof",
-          "--heap-prof-dir=threads-profile"
-        ],
-
-        // Generate a single profile
-        singleThread: true
+          "--heap-prof-dir=/tmp/threads-profile"
+        ]
       },
-
       forks: {
+        singleFork: true,
         execArgv: [
           // https://nodejs.org/api/cli.html#--cpu-prof
           "--cpu-prof",
-          "--cpu-prof-dir=forks-profile",
-
+          "--cpu-prof-dir=/tmp/forks-profile",
           // https://nodejs.org/api/cli.html#--heap-prof
           "--heap-prof",
-          "--heap-prof-dir=forks-profile"
-        ],
-
-        // Generate a single profile
-        singleFork: true
+          "--heap-prof-dir=/tmp/forks-profile"
+        ]
       }
     },
     coverage: {
       provider: "v8",
-      reporter: ["text", "json", "html"],
+      reporter: ["json"],
       extension: [".ts"],
-      all: true,
       include: ["src/**/*.ts"],
       exclude: [...exclude, "**/*.test.ts", "**/*.d.ts"],
       enabled: true,
-      clean: true,
+      experimentalAstAwareRemapping: true,
       ignoreEmptyLines: true,
       reportsDirectory: "./coverage",
-      cleanOnRerun: true,
-      reportOnFailure: true,
       processingConcurrency: 10,
       watermarks: {
         branches: [80, 100],

@@ -1,141 +1,159 @@
 import type { Search, SearchResponse } from "@mateothegreat/notionkit-types/operations/search";
 import { add, set } from "@mateothegreat/ts-kit/observability/metrics/operations";
 import { Reporter } from "@mateothegreat/ts-kit/observability/metrics/reporter";
-import { EMPTY, Subject, defer, timer } from "rxjs";
-import { expand, map, takeUntil } from "rxjs/operators";
+import { EMPTY, Subject, defer, expand, takeUntil, tap } from "rxjs";
 import { HTTP } from "../util/http/client";
 import { HTTPConfig } from "../util/http/config";
 import { HTTPResponse } from "../util/http/response";
-import { Operator, OperatorConfig, type OperatorReport } from "./operator";
+import type { OperatorConfig, OperatorReport } from "./operator";
 
 /**
- * Operator for searching across Notion with streaming pagination support.
+ * Performs a search operation and returns a stream of search results.
+ *
+ * This runner is responsible for:
+ * - Making the initial search request.
+ * - Recursively fetching subsequent pages until all results are retrieved or limits are reached.
+ * - Applying metrics to the reporter to track progress.
+ * - Handling cancellation of the stream.
  */
-export class SearchOperator extends Operator<Search, SearchResponse> {
+export class SearchRunner {
   /**
-   * Execute the operator with the given request and configuration with streaming
-   * pagination support.
-   *
-   * @param payload - The search request payload.
-   * @param httpConfig - The HTTP configuration.
-   * @param operatorConfig - The operator configuration including limits.
-   *
-   * @returns Observables of response stream.
-   */
-  execute(
-    request: Search,
-    httpConfig: HTTPConfig,
-    operatorConfig: OperatorConfig,
-    reporter?: Reporter<OperatorReport>
-  ): HTTPResponse<SearchResponse> {
-    if (!(httpConfig instanceof HTTPConfig)) {
-      httpConfig = new HTTPConfig(httpConfig);
-    }
-
-    if (!(operatorConfig instanceof OperatorConfig)) {
-      operatorConfig = new OperatorConfig(operatorConfig);
-    }
-
-    if (!reporter) {
-      reporter = new Reporter<OperatorReport>({
-        stage: "requesting",
-        requests: 0,
-        items: 0,
-        errors: 0
-      });
-    }
-
-    // Create a subject so the stream can be cancelled if needed.
-    const cancelSubject = new Subject<void>();
-
-    // Set a maximum runtime for all operations (i.e. pagination, HTTP requests, etc.).
-    // This is a global timeout for the entire operation, not just the HTTP requests.
-    if (operatorConfig.timeout) {
-      timer(operatorConfig.timeout)
-        .pipe(takeUntil(cancelSubject))
-        .subscribe(() => {
-          reporter!.apply(
-            set("stage", "error"),
-            set("message", `operation timed out after ${operatorConfig.timeout}ms`)
-          );
-          cancelSubject.next();
-          cancelSubject.complete();
-        });
-    }
-
-    return this.createPaginatedStream(request, httpConfig, operatorConfig, reporter, cancelSubject);
-  }
-
-  /**
-   * Create a paginated stream that handles cursor-based pagination automatically with limits.
+   * Runs the search operation and returns a stream of search results.
    *
    * @param request - The search request.
-   * @param httpConfig - The HTTP configuration.
-   * @param operatorConfig - The operator configuration.
+   * @param http - The HTTP configuration.
+   * @param config - The operator configuration.
    * @param reporter - The reporter to update.
    * @param cancel$ - The subject to cancel the stream.
    *
    * @returns The HTTP response stream.
    */
-  private createPaginatedStream(
+  run(
     request: Search,
-    httpConfig: HTTPConfig,
-    operatorConfig: OperatorConfig,
-    reporter: Reporter<OperatorReport>,
-    cancel$: Subject<void>
+    http: HTTPConfig,
+    config?: OperatorConfig,
+    reporter?: Reporter<OperatorReport>,
+    cancel$?: Subject<void>
   ): HTTPResponse<SearchResponse> {
-    // Recursively callable function to make an HTTP request.
-    const fetchPage = (body: Search): HTTPResponse<SearchResponse> => {
-      return HTTP.post<SearchResponse>("/search", {
-        baseUrl: httpConfig.baseUrl,
-        timeout: httpConfig.timeout,
-        headers: httpConfig.headers,
-        body
+    /**
+     * Callable function to make an HTTP request by way of recursion.
+     */
+    const fetchPage = () => {
+      const ret = HTTP.post<SearchResponse>("/search", {
+        ...http,
+        body: request
       });
+      ret.data$.pipe(
+        tap((next) => {
+          reporter?.apply(set("stage", "paginating"), add("items", next.results.length), add("requests", 1));
+        })
+      );
+      return ret;
     };
 
-    const data$ = defer(() => fetchPage(request).data$).pipe(
-      // Cancel the stream if anything emits to the cancel$ observable.
-      takeUntil(cancel$),
-      // Expand out so we can keep fetching pages until we have no more pages or limits are reached.
-      expand((response) => {
-        reporter.apply(
-          add("requests", 1),
-          add("items", response.results.length),
-          set("cursor", response.next_cursor),
-          set("stage", "requesting")
-        );
-        const state = reporter.snapshot();
-        // See if we need to break out of the recursion.
-        if (
-          // Make sure we're not overshooting the pages limit.
-          (operatorConfig.limits?.pages !== undefined && state.requests >= operatorConfig.limits.pages) ||
-          // Make sure we're not overshooting the results limit.
-          (operatorConfig.limits?.results !== undefined && state.items >= operatorConfig.limits.results) ||
-          // Make sure we're not fetching pages that don't have a next cursor.
-          !response.has_more ||
-          !response.next_cursor
-        ) {
-          reporter.apply(set("cursor", response.next_cursor), set("stage", "complete"));
-          return EMPTY;
-        }
-        // Keep recursively fetching pages until we have no more pages or limits are reached.
-        return fetchPage({ ...request, start_cursor: response.next_cursor }).data$;
-      }),
-      // If we have a limit and the results overshot the hard limit, slice the results.
-      map((response) => {
-        if (operatorConfig.limits?.results) {
-          const remaining = Math.max(0, operatorConfig.limits.results - reporter.snapshot().items);
-          return {
-            ...response,
-            results: remaining > 0 ? response.results.slice(0, remaining) : response.results
-          };
-        }
-        return response;
-      })
+    /**
+     * Tee-up the initial request and return the HTTPResponse object.
+     * When the caller subscribes to the stream, the initial request will be made and
+     * pagination, etc. will be handled by the operators below.
+     */
+    const initial = fetchPage();
+
+    return new HTTPResponse<SearchResponse>(
+      /**
+       * The `defer(() => initial.data$)` operator defers the emission of the initial
+       * data until the caller subscribes to the stream.
+       *
+       * Observables are "cold" by default, meaning they don't start emitting values
+       * until a subscriber is attached.
+       */
+      defer(() => initial.data$).pipe(
+        /**
+         * The `takeUntil(cancel$)` operator cancels the observable stream when `cancel$` emits.
+         *
+         * In this context, we allow the caller to cancel an in-progress pagination request—for example,
+         * if the user navigates away or explicitly calls `.cancel()` on the HTTPResponse.
+         *
+         * If no cancellation subject is provided, we default to `EMPTY` (a noop stream that never emits).
+         *
+         * This is a common pattern in RxJS to handle cancellation of long-running operations.
+         */
+        takeUntil(cancel$ ?? EMPTY),
+
+        /**
+         * The `expand()` operator recursively emits new inner observables until a termination
+         * condition is met.
+         *
+         * Here, it enables **asynchronous pagination**: each response is checked for a `next_cursor`
+         * and if more pages are available and limits haven't been exceeded, a new HTTP request is made.
+         * This creates a flat stream of all paginated `SearchResponse` objects emitted in sequence.
+         */
+        expand((response) => {
+          /**
+           * Apply metrics for the current response FIRST to ensure the reporter snapshot
+           * reflects the current state when checking limits.
+           *
+           * This is critical because the limits check needs to see the updated metrics
+           * that include the current response's contribution.
+           */
+          reporter?.apply(set("stage", "paginating"), add("items", response.results.length), add("requests", 1));
+
+          /**
+           * Get the updated state AFTER applying metrics to ensure we have accurate counts.
+           */
+          const state = reporter?.snapshot();
+
+          /**
+           * Check termination conditions based on the updated state.
+           * We stop pagination if:
+           * 1. No more pages available (has_more is false).
+           * 2. No next cursor provided by the API.
+           * 3. Requests limit has been reached or exceeded.
+           * 4. Results limit has been reached or exceeded.
+           */
+          if (
+            !response.has_more ||
+            !response.next_cursor ||
+            (config?.limits?.requests && state && state.requests >= config.limits.requests) ||
+            (config?.limits?.results && state && state.items >= config.limits.results)
+          ) {
+            /**
+             * Reporting hook: mark this request as complete.
+             * We don't add additional metrics here since they were already applied above.
+             */
+            reporter?.apply(set("stage", "complete"));
+            return EMPTY; // Stop recursion
+          }
+
+          /**
+           * Perform the next page request using the `next_cursor` from the previous response.
+           * This returned observable will be re-fed into `expand()` until an exit condition is met.
+           */
+          return HTTP.post<SearchResponse>("/search", {
+            ...http,
+            body: { ...request, start_cursor: response.next_cursor }
+          }).data$;
+        })
+      ),
+      /**
+       * Raw response observable, used internally by HTTPResponse for initial metadata and tracing.
+       */
+      initial.raw$,
+      /**
+       * Optional reporter used to trace lifecycle events like start, pagination, complete, metrics, etc.
+       */
+      reporter,
+      /**
+       * Cleanup function to trigger `cancel$` emission when HTTPResponse is externally cancelled.
+       *
+       * This can then be called like:
+       * ```ts
+       * const res = runner.run(request, http, config, reporter, cancel$);
+       * setTimeout(() => {
+       *   cancel$.next();
+       * }, 1000);
+       * ```
+       */
+      () => cancel$?.next()
     );
-    // Start the stream by fetching the initial page first and let recursion handle the rest above.
-    // When the caller subscribes to the stream, it will start the processes above.
-    return new HTTPResponse(data$, fetchPage(request).raw$, reporter, () => cancel$.next());
   }
 }
