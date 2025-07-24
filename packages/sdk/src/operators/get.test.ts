@@ -1,21 +1,29 @@
-import type { Scenario } from "$test/scenarios";
-import { OperatorSnapshot } from "$test/snapshots";
-import { isPropertyListResponse, type GetRequest } from "@mateothegreat/notionkit-types";
-import { cyan, cyanBright } from "ansis";
+import {
+  isBlockResponse,
+  isDatabaseResponse,
+  isPageResponse,
+  isPropertyListResponse,
+  type GetPropertyRequest,
+  type GetRequest
+} from "@mateothegreat/notionkit-types/operations/get";
+import { Reporter } from "@mateothegreat/ts-kit/observability/metrics/reporter";
+import { cyanBright } from "ansis";
 import { firstValueFrom } from "rxjs";
-import { beforeEach, describe, expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
+import type { Scenario } from "../test/scenarios";
+import { OperatorSnapshot } from "../test/snapshots";
 import { HTTPConfig } from "../util/http/config";
 import { GetOperator } from "./get";
+import type { OperatorReport } from "./operator";
 
 const token = process.env.NOTION_TOKEN || process.env.token;
 
-const scenarios: Scenario<GetRequest>[] = [
+const scenarios: Scenario<GetRequest | GetPropertyRequest>[] = [
   {
-    name: "get single property",
+    name: "get single page",
     request: {
-      resource: "property",
-      id: "234d7342-e571-8186-b047-fb21820f604b",
-      property_id: "wYBP"
+      resource: "page",
+      id: "22cd7342e57180d292f7c90f552b68f2"
     },
     expected: {
       requests: 1
@@ -32,20 +40,21 @@ const scenarios: Scenario<GetRequest>[] = [
     }
   },
   {
-    name: "get single page",
+    name: "get single block",
     request: {
-      resource: "page",
-      id: "22cd7342e57180d292f7c90f552b68f2"
+      resource: "block",
+      id: "22cd7342-e571-8096-9127-c48e806cf469"
     },
     expected: {
       requests: 1
     }
   },
   {
-    name: "get single block",
+    name: "get single property",
     request: {
-      resource: "block",
-      id: "22cd7342-e571-8096-9127-c48e806cf469"
+      resource: "property",
+      id: "234d7342-e571-8186-b047-fb21820f604b",
+      property_id: "wYBP"
     },
     expected: {
       requests: 1
@@ -63,47 +72,94 @@ const scenarios: Scenario<GetRequest>[] = [
   }
 ];
 
-describe("GetOperator", () => {
-  let operator: GetOperator;
+describe("GetOperator by resource", () => {
+  const operator = new GetOperator();
 
-  beforeEach(() => {
-    operator = new GetOperator();
+  test.each(scenarios.filter((s) => s.request.resource === "page"))("page", async (scenario) => {
+    const res = operator.page(scenario.request.id, new HTTPConfig({ token }), new Reporter<OperatorReport>());
+    const result = await firstValueFrom(res.data$);
+    expect(isPageResponse(result)).toBe(true);
+    if (isPageResponse(result)) {
+      expect(result.id).toBeDefined();
+    }
   });
 
-  test.each(scenarios)(
+  test.each(scenarios.filter((s) => s.request.resource === "database"))("database", async (scenario) => {
+    const res = operator.database(scenario.request.id, new HTTPConfig({ token }), new Reporter<OperatorReport>());
+    const result = await firstValueFrom(res.data$);
+    expect(isDatabaseResponse(result)).toBe(true);
+    if (isDatabaseResponse(result)) {
+      expect(result.id).toBeDefined();
+    }
+  });
+
+  test.each(scenarios.filter((s) => s.request.resource === "block"))("block", async (scenario) => {
+    const res = operator.block(scenario.request.id, new HTTPConfig({ token }), new Reporter<OperatorReport>());
+    const result = await firstValueFrom(res.data$);
+    expect(isBlockResponse(result)).toBe(true);
+    if (isBlockResponse(result)) {
+      expect(result.id).toBeDefined();
+    }
+  });
+
+  test.each(scenarios.filter((s) => s.request.resource === "property"))("property", async (scenario) => {
+    if (scenario.request.resource === "property" && "property_id" in scenario.request) {
+      const res = operator.property(
+        scenario.request.id,
+        scenario.request.property_id,
+        new HTTPConfig({ token }),
+        new Reporter<OperatorReport>()
+      );
+      const result = await firstValueFrom(res.data$);
+      expect(isPropertyListResponse(result)).toBe(true);
+      if (isPropertyListResponse(result)) {
+        expect(result.results.length).toBeGreaterThan(0);
+      }
+    }
+  });
+});
+
+describe("GetOperator", () => {
+  const operator = new GetOperator();
+
+  test.each(scenarios.filter((s) => s.request.resource !== "property"))(
     `${cyanBright("$name")}`,
     async (scenario) => {
-      const snapshot = new OperatorSnapshot<GetRequest>({
+      const snapshot = new OperatorSnapshot<GetRequest | GetPropertyRequest>({
         operator: "get",
         scenario,
         request: scenario.request,
         httpConfig: new HTTPConfig({ token })
       });
 
-      const res = operator.execute(snapshot.request, snapshot.httpConfig, {
-        timeout: scenario.timeout ?? 15_000
-      });
+      const reporter = new Reporter<OperatorReport>();
+      const res = operator.execute(
+        snapshot.request,
+        snapshot.httpConfig,
+        {
+          timeout: scenario.timeout ?? 15_000
+        },
+        reporter
+      );
 
       let events = 0;
 
-      res.reporter.metrics$.subscribe((metrics) => {
+      reporter.metrics$.subscribe((metrics) => {
         events++;
         snapshot.states.push(metrics);
       });
 
+      // res.raw$.subscribe(async (data) => {
+      //   console.log("raw$", await data.json());
+      // });
+
       try {
         const result = await firstValueFrom(res.data$);
 
-        expect(res.reporter.snapshot().stage).toBe("complete");
-
-        if (isPropertyListResponse(result)) {
-          expect(result.results.length).toBeGreaterThan(0);
-        } else {
-          expect(result.object).toEqual(scenario.request.resource);
-        }
+        expect(reporter.snapshot().stage).toBe("complete");
         await snapshot.save(scenario, result);
       } catch (error) {
-        console.error(`${cyan(scenario.name)} test failed →`, error);
+        console.error(`${cyanBright(scenario.name)} test failed →`, error);
         throw error;
       }
     },

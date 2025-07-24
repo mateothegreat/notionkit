@@ -27,6 +27,7 @@ export const getPropertyRequest = type({
   "page_size?": "number",
   "start_cursor?": "string"
 });
+export type GetPropertyRequest = typeof getPropertyRequest.infer;
 
 /**
  * Unified get request that handles all resource types.
@@ -45,6 +46,16 @@ export const propertyItemSchema = type({
 });
 
 export type PropertyItem = typeof propertyItemSchema.infer;
+
+export const getPageResponseSchema = type({
+  object: '"page"',
+  id: "string",
+  "parent?": {
+    type: '"database_id"'
+  }
+});
+
+export type GetPageResponse = typeof getPageResponseSchema.infer;
 
 /**
  * Paginated property response for rich_text, relation, people, and title properties.
@@ -74,7 +85,30 @@ export const getResponseSchema = databaseSchema
   .or(propertyItemSchema)
   .or(propertyListResponseSchema);
 
-export type GetResponse = typeof getResponseSchema.infer;
+/**
+ * Mapped type for get responses based on resource type.
+ * This provides better type safety and clearer mapping between request types and response types.
+ */
+export type GetResponse<T extends GetResourceType = GetResourceType> = T extends "database"
+  ? typeof databaseSchema.infer
+  : T extends "page"
+    ? typeof pageSchema.infer
+    : T extends "block"
+      ? typeof blockSchema.infer
+      : T extends "property"
+        ? PropertyItem | PropertyListResponse
+        : typeof getResponseSchema.infer;
+
+/**
+ * Specific response types for single resources (non-paginated).
+ */
+export type SingleResourceResponse<T extends Exclude<GetResourceType, "property">> = T extends "database"
+  ? typeof databaseSchema.infer
+  : T extends "page"
+    ? typeof pageSchema.infer
+    : T extends "block"
+      ? typeof blockSchema.infer
+      : never;
 
 /**
  * Type guards for response types.

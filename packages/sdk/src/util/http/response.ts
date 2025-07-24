@@ -19,7 +19,7 @@ export class HTTPResponse<TResponse> {
   /**
    * The metrics reporter.
    */
-  readonly reporter: Reporter<OperatorReport>;
+  readonly reporter?: Reporter<OperatorReport>;
 
   /**
    * The cancel function.
@@ -37,7 +37,7 @@ export class HTTPResponse<TResponse> {
   constructor(
     data$: Observable<TResponse>,
     raw$: Observable<Response>,
-    reporter: Reporter<OperatorReport>,
+    reporter?: Reporter<OperatorReport>,
     cancel?: () => void
   ) {
     this.data$ = data$;

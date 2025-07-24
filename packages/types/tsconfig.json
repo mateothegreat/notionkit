@@ -5,6 +5,7 @@
     "rootDir": "src",
     "outDir": "dist",
     "baseUrl": ".",
+    "sourceMap": true,
     "paths": {
       "$lib/*": ["src/lib/*"]
     }

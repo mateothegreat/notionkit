@@ -1,10 +1,12 @@
 import type { Scenario } from "$test/scenarios";
 import { OperatorSnapshot } from "$test/snapshots";
 import type { Search, SearchResponse } from "@mateothegreat/notionkit-types";
+import { Reporter } from "@mateothegreat/ts-kit/observability/metrics/reporter";
 import { blueBright, cyanBright, yellowBright } from "ansis";
 import { firstValueFrom, reduce } from "rxjs";
 import { describe, expect, test } from "vitest";
 import { HTTPConfig } from "../util/http/config";
+import type { OperatorReport } from "./operator";
 import { SearchOperator } from "./search";
 
 const token = process.env.NOTION_TOKEN || process.env.token;
@@ -91,14 +93,20 @@ describe(`SearchOperator`, () => {
         httpConfig: new HTTPConfig({ token })
       });
       const operator = new SearchOperator();
+      const reporter = new Reporter<OperatorReport>();
 
-      const res = operator.execute(snapshot.request, snapshot.httpConfig, {
-        timeout: scenario.timeout,
-        limits: scenario.limits
-      });
+      const res = operator.execute(
+        snapshot.request,
+        snapshot.httpConfig,
+        {
+          timeout: scenario.timeout,
+          limits: scenario.limits
+        },
+        reporter
+      );
 
       let emissions = 0;
-      res.reporter.metrics$.subscribe((metrics) => {
+      reporter.metrics$.subscribe((metrics) => {
         emissions++;
         snapshot.states.push(metrics);
       });
@@ -110,8 +118,8 @@ describe(`SearchOperator`, () => {
       );
 
       expect(emissions).toEqual(scenario.expected.requests! + 2);
-      expect(res.reporter.snapshot().stage).toBe("complete");
-      expect(res.reporter.snapshot().requests).toEqual(scenario.expected.requests);
+      expect(reporter.snapshot().stage).toBe("complete");
+      expect(reporter.snapshot().requests).toEqual(scenario.expected.requests);
       expect(results.length).toEqual(scenario.expected.requests! * scenario.request.page_size!);
 
       console.log(

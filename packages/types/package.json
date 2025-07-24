@@ -6,8 +6,12 @@
   "types": "./src/index.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.js",
+      "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./operations/*": {
+      "types": "./dist/operations/*.d.ts",
+      "default": "./dist/operations/*.js"
     }
   },
   "sideEffects": false,
@@ -44,6 +48,7 @@
   },
   "devDependencies": {
     "@ark/attest": "^0.48.2",
+    "@arktype/attest": "^0.46.0",
     "@types/cli-progress": "^3.11.6",
     "@types/fs-extra": "^11.0.4",
     "@types/node": "^24.0.13",

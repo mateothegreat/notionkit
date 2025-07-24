@@ -8,7 +8,7 @@ import type { GetResourceType } from "@mateothegreat/notionkit-types";
  *
  * @returns The API endpoint URL.
  */
-export const getEndpoint = (resource: GetResourceType, values: Record<string, string>): string => {
+export const getEndpoint = (resource: GetResourceType, values: Record<string, string | number>): string => {
   switch (resource) {
     case "database":
       return `/databases/${values.id}`;
@@ -17,8 +17,8 @@ export const getEndpoint = (resource: GetResourceType, values: Record<string, st
     case "block":
       return `/blocks/${values.id}`;
     case "property":
-      if ("page_id" in values && "property_id" in values) {
-        return `/pages/${values.page_id}/properties/${values.property_id}`;
+      if ("id" in values && "property_id" in values) {
+        return `/pages/${values.id}/properties/${values.property_id}`;
       }
       throw new Error("property requests require both page_id and property_id");
     default:
