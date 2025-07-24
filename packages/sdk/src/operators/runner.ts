@@ -1,10 +1,10 @@
+import { Reporter } from "@mateothegreat/ts-kit/observability/metrics/reporter";
 import type {
   GetPropertyRequest,
   GetRequestBase,
   GetResourceType,
   GetResponse
-} from "@mateothegreat/notionkit-types/operations/get";
-import { Reporter } from "@mateothegreat/ts-kit/observability/metrics/reporter";
+} from "@notion.codes/types/operations/get";
 import { Subject } from "rxjs";
 import type { HTTPConfig } from "../util/http/config";
 import type { HTTPResponse } from "../util/http/response";

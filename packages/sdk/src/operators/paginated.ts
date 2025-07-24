@@ -1,10 +1,6 @@
-import type {
-  GetPropertyRequest,
-  GetResponse,
-  PropertyListResponse
-} from "@mateothegreat/notionkit-types/operations/get";
 import { add, set } from "@mateothegreat/ts-kit/observability/metrics/operations";
 import { Reporter } from "@mateothegreat/ts-kit/observability/metrics/reporter";
+import type { GetPropertyRequest, GetResponse, PropertyListResponse } from "@notion.codes/types/operations/get";
 import { EMPTY, Subject, defer, expand, takeUntil, tap } from "rxjs";
 import { HTTP } from "../util/http/client";
 import type { HTTPConfig } from "../util/http/config";

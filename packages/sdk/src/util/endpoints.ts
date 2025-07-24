@@ -1,4 +1,4 @@
-import type { GetResourceType } from "@mateothegreat/notionkit-types/operations/get";
+import type { GetResourceType } from "@notion.codes/types/operations/get";
 
 /**
  * Build the appropriate endpoint URL based on the resource type and request.

@@ -1,7 +1,7 @@
 import type { Scenario } from "$test/scenarios";
 import { OperatorSnapshot } from "$test/snapshots";
-import type { Search, SearchResponse } from "@mateothegreat/notionkit-types/operations/search";
 import { Reporter } from "@mateothegreat/ts-kit/observability/metrics/reporter";
+import type { Search, SearchResponse } from "@notion.codes/types/operations/search";
 import { cyanBright } from "ansis";
 import { firstValueFrom, reduce } from "rxjs";
 import { describe, expect, test } from "vitest";

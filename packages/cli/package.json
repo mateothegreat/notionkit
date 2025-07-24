@@ -1,5 +1,5 @@
 {
-  "name": "@mateothegreat/notionkit-cli",
+  "name": "@notion.codes/cli",
   "version": "1.0.0",
   "description": "",
   "type": "module",
@@ -25,8 +25,8 @@
     ".": "./src/index.ts"
   },
   "devDependencies": {
-    "@mateothegreat/notionkit-sdk": "workspace:*",
-    "@mateothegreat/notionkit-types": "workspace:*",
+    "@notion.codes/sdk": "workspace:*",
+    "@notion.codes/types": "workspace:*",
     "@notionhq/client": "4.0.1",
     "@oclif/core": "4.5.1",
     "@oclif/prettier-config": "0.2.1",

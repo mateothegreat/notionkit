@@ -3,8 +3,8 @@ import { Factory } from "$lib/factory";
 import { display } from "$lib/util";
 import { log } from "$lib/util/logging";
 import { BundledPluginMap, PluginFromFlag } from "$plugins/bundled";
-import { SearchOperator } from "@mateothegreat/notionkit-sdk/operators/search";
-import type { SearchResponse } from "@mateothegreat/notionkit-types";
+import { SearchOperator } from "@notion.codes/sdk/operators/search";
+import type { SearchResponse } from "@notion.codes/types";
 import { Args, Command, Flags } from "@oclif/core";
 import { firstValueFrom, fromEvent, reduce, takeUntil, tap, type Subscription } from "rxjs";
 

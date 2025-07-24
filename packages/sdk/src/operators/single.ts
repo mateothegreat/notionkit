@@ -1,6 +1,6 @@
-import type { GetResponse } from "@mateothegreat/notionkit-types/operations/get";
 import { set } from "@mateothegreat/ts-kit/observability/metrics/operations";
 import type { Reporter } from "@mateothegreat/ts-kit/observability/metrics/reporter";
+import type { GetResponse } from "@notion.codes/types/operations/get";
 import { EMPTY, Subject, takeUntil, tap } from "rxjs";
 import { HTTP } from "../util/http/client";
 import type { HTTPConfig } from "../util/http/config";

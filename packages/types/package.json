@@ -1,5 +1,5 @@
 {
-  "name": "@mateothegreat/notionkit-types",
+  "name": "@notion.codes/types",
   "version": "0.1.0",
   "description": "A type-safe, reactive Notion SDK with schema validation and fluent API",
   "main": "./dist/index.js",

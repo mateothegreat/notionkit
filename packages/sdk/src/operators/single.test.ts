@@ -1,11 +1,6 @@
-import { type GetPropertyRequest, type GetRequest } from "@mateothegreat/notionkit-types/operations/get";
-import {
-  isBlockResponse,
-  isDatabaseResponse,
-  isPageResponse,
-  isPropertyListResponse
-} from "@mateothegreat/notionkit-types/util";
 import { Reporter } from "@mateothegreat/ts-kit/observability/metrics/reporter";
+import { type GetPropertyRequest, type GetRequest } from "@notion.codes/types/operations/get";
+import { isBlockResponse, isDatabaseResponse, isPageResponse, isPropertyListResponse } from "@notion.codes/types/util";
 import { firstValueFrom } from "rxjs";
 import { describe, expect, test } from "vitest";
 import type { Scenario } from "../test/scenarios";
