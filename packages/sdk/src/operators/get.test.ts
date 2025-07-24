@@ -1,17 +1,16 @@
+import { OperatorSnapshot } from "$test/snapshots";
+import { type GetPropertyRequest, type GetRequest } from "@mateothegreat/notionkit-types/operations/get";
 import {
   isBlockResponse,
   isDatabaseResponse,
   isPageResponse,
-  isPropertyListResponse,
-  type GetPropertyRequest,
-  type GetRequest
-} from "@mateothegreat/notionkit-types/operations/get";
+  isPropertyListResponse
+} from "@mateothegreat/notionkit-types/util";
 import { Reporter } from "@mateothegreat/ts-kit/observability/metrics/reporter";
 import { cyanBright } from "ansis";
 import { firstValueFrom } from "rxjs";
 import { describe, expect, test } from "vitest";
 import type { Scenario } from "../test/scenarios";
-import { OperatorSnapshot } from "../test/snapshots";
 import { HTTPConfig } from "../util/http/config";
 import { GetOperator } from "./get";
 import type { OperatorReport } from "./operator";
@@ -78,6 +77,7 @@ describe("GetOperator by resource", () => {
   test.each(scenarios.filter((s) => s.request.resource === "page"))("page", async (scenario) => {
     const res = operator.page(scenario.request.id, new HTTPConfig({ token }), new Reporter<OperatorReport>());
     const result = await firstValueFrom(res.data$);
+    // console.log(result.parent.);
     expect(isPageResponse(result)).toBe(true);
     if (isPageResponse(result)) {
       expect(result.id).toBeDefined();
@@ -133,8 +133,17 @@ describe("GetOperator", () => {
       });
 
       const reporter = new Reporter<OperatorReport>();
+      const { request } = snapshot;
+
+      // This guard is essential for TypeScript to understand which overload to use.
+      if (request.resource === "property") {
+        // We know this won't be hit because of the .filter() on the test suite,
+        // but it satisfies the compiler.
+        return;
+      }
+
       const res = operator.execute(
-        snapshot.request,
+        request,
         snapshot.httpConfig,
         {
           timeout: scenario.timeout ?? 15_000
@@ -156,6 +165,7 @@ describe("GetOperator", () => {
       try {
         const result = await firstValueFrom(res.data$);
 
+        console.log(result.id);
         expect(reporter.snapshot().stage).toBe("complete");
         await snapshot.save(scenario, result);
       } catch (error) {

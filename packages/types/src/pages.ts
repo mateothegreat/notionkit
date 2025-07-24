@@ -1,8 +1,27 @@
 import { type } from "arktype";
 import { richTextArraySchema } from "./blocks";
 import { titleBasePropertySchema } from "./common";
-import { coverSchema, iconSchema, idSchema, parentSchema, userSchema } from "./schemas";
+import { coverSchema, iconSchema, idSchema, userSchema } from "./schemas";
 import { type InferredType } from "./util";
+
+export const pageParent = type({
+  type: "'database_id'",
+  database_id: idSchema
+})
+  .or({
+    type: "'page_id'",
+    page_id: idSchema
+  })
+  .or({
+    type: "'workspace'",
+    workspace: "true"
+  })
+  .or({
+    type: "'block_id'",
+    block_id: idSchema
+  });
+
+export type PageParent = typeof pageParent.infer;
 
 export const pagePropertiesSchema = type("Record<string, unknown>");
 
@@ -28,31 +47,13 @@ export const pageSchema = type({
   last_edited_time: "string",
   last_edited_by: userSchema,
   archived: "boolean",
+  in_trash: "boolean",
   "icon?": iconSchema,
   "cover?": coverSchema,
   properties: pagePropertiesSchema,
-  parent: parentSchema,
+  parent: pageParent,
   url: "string",
-  "public_url?": "string"
+  "public_url?": "string | null"
 });
 
 export type Page = typeof pageSchema.infer;
-
-export const fullPageSchema = type({
-  id: idSchema,
-  object: '"page"',
-  created_time: "string",
-  created_by: userSchema,
-  last_edited_time: "string",
-  last_edited_by: userSchema,
-  archived: "boolean",
-  "icon?": iconSchema,
-  "cover?": coverSchema,
-  properties: pagePropertiesSchema,
-  parent: parentSchema,
-  url: "string",
-  "public_url?": "string",
-  content: "unknown[]" // Array of blocks - we'll use block schemas when implemented
-});
-
-export type FullPage = InferredType<typeof fullPageSchema>;

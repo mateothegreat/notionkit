@@ -5,9 +5,9 @@
   "main": "./dist/index.js",
   "types": "./src/index.ts",
   "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
     },
     "./operations/*": {
       "types": "./dist/operations/*.d.ts",

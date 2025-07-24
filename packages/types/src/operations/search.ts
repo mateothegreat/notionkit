@@ -1,6 +1,8 @@
 import { type } from "arktype";
-import { databasePropertySchema, pagePropertyValueSchema } from "./properties";
-import { isoDateSchema, parentSchema, userSchema } from "./schemas";
+import { databaseParent } from "../databases";
+import { pageParent } from "../pages";
+import { databasePropertySchema, pagePropertyValueSchema } from "../properties";
+import { isoDateSchema, userSchema } from "../schemas";
 
 export const searchSort = type({
   timestamp: isoDateSchema,
@@ -43,7 +45,7 @@ export const pageOrDatabaseSchema = type({
   archived: "boolean",
   url: "string",
   "public_url?": "string | null",
-  parent: parentSchema,
+  parent: databaseParent.or(pageParent),
   properties: type([pagePropertyValueSchema, databasePropertySchema]),
   created_by: userSchema,
   last_edited_by: userSchema

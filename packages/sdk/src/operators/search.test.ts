@@ -1,6 +1,6 @@
 import type { Scenario } from "$test/scenarios";
 import { OperatorSnapshot } from "$test/snapshots";
-import type { Search, SearchResponse } from "@mateothegreat/notionkit-types";
+import type { Search, SearchResponse } from "@mateothegreat/notionkit-types/operations/search";
 import { Reporter } from "@mateothegreat/ts-kit/observability/metrics/reporter";
 import { blueBright, cyanBright, yellowBright } from "ansis";
 import { firstValueFrom, reduce } from "rxjs";

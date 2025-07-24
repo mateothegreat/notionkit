@@ -6,6 +6,10 @@
     "outDir": "dist",
     "baseUrl": ".",
     "sourceMap": true,
+    "inlineSourceMap": false,
+    "inlineSources": true,
+    "declaration": true,
+    "declarationMap": true,
     "paths": {
       "$lib/*": ["src/lib/*"]
     }

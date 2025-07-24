@@ -1,4 +1,4 @@
-import type { GetResourceType } from "@mateothegreat/notionkit-types";
+import type { GetResourceType } from "@mateothegreat/notionkit-types/operations/get";
 
 /**
  * Build the appropriate endpoint URL based on the resource type and request.
@@ -17,8 +17,8 @@ export const getEndpoint = (resource: GetResourceType, values: Record<string, st
     case "block":
       return `/blocks/${values.id}`;
     case "property":
-      if ("id" in values && "property_id" in values) {
-        return `/pages/${values.id}/properties/${values.property_id}`;
+      if ("page_id" in values && "property_id" in values) {
+        return `/pages/${values.page_id}/properties/${values.property_id}`;
       }
       throw new Error("property requests require both page_id and property_id");
     default:

@@ -1,15 +1,17 @@
 import { describe, expect, test } from "vitest";
 import {
-  getPropertyRequest,
-  getRequest,
-  getRequestBase,
-  getResourceType,
   isBlockResponse,
   isDatabaseResponse,
   isPageResponse,
   isPaginatedPropertyType,
   isPropertyItemResponse,
-  isPropertyListResponse,
+  isPropertyListResponse
+} from "../util";
+import {
+  getPropertyRequest,
+  getRequest,
+  getRequestBase,
+  getResourceType,
   propertyItemSchema,
   propertyListResponseSchema,
   type GetResponse,
@@ -26,10 +28,7 @@ describe("Get Operation Types", () => {
     });
 
     test("should reject invalid resource types", () => {
-      const result = getResourceType("invalid" as any);
-      // ArkType returns an array of ArkError objects for validation failures
-      expect(Array.isArray(result)).toBe(true);
-      expect(result.length).toBeGreaterThan(0);
+      expect(() => getResourceType("invalid" as any)).toThrow();
     });
   });
 

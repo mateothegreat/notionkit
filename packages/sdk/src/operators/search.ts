@@ -1,4 +1,4 @@
-import type { Search, SearchResponse } from "@mateothegreat/notionkit-types";
+import type { Search, SearchResponse } from "@mateothegreat/notionkit-types/operations/search";
 import { add, set } from "@mateothegreat/ts-kit/observability/metrics/operations";
 import { Reporter } from "@mateothegreat/ts-kit/observability/metrics/reporter";
 import { EMPTY, Subject, defer, timer } from "rxjs";

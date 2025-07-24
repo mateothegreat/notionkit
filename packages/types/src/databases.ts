@@ -1,7 +1,6 @@
 import { type } from "arktype";
-import type { BlockId, DatabaseId, PageId } from "./brands";
 import { emptyObject, titleBasePropertySchema } from "./common";
-import { coverSchema, iconSchema, idSchema, parentSchema, userSchema } from "./schemas";
+import { coverSchema, iconSchema, idSchema, richTextSchema, userSchema } from "./schemas";
 import type { InferredType } from "./util";
 
 export const databasePropertiesSchema = type("Record<string, unknown>");
@@ -20,6 +19,13 @@ export const databaseTitlePropertySchema = type({
 
 export type DatabaseTitleProperty = typeof databaseTitlePropertySchema.infer;
 
+export const databaseParent = type({
+  type: "'database'",
+  database_id: idSchema
+});
+
+export type DatabaseParent = typeof databaseParent.infer;
+
 export const databaseSchema = type({
   object: '"database"',
   id: idSchema,
@@ -31,12 +37,12 @@ export const databaseSchema = type({
   in_trash: "boolean",
   url: "string",
   "public_url?": "string | null",
-  title: type("unknown[]"),
-  description: type("unknown[]"),
+  title: richTextSchema,
+  description: richTextSchema,
   "icon?": iconSchema,
   "cover?": coverSchema,
   properties: databasePropertiesSchema,
-  parent: parentSchema,
+  parent: databaseParent,
   is_inline: "boolean"
 });
 
@@ -65,54 +71,4 @@ export function isDatabase(obj: unknown): obj is Database {
     "object" in obj &&
     (obj as any).object === "database"
   );
-}
-
-/**
- * Get the parent type of a database.
- *
- * @param database - The database to check
- * @returns The parent type
- *
- * @example
- * ```typescript
- * const database = await notion.databases.retrieve({ database_id: "..." });
- * if (getDatabaseParentType(database) === "page_id") {
- *   console.log("This database is in a page");
- * }
- * ```
- */
-export function getDatabaseParentType(database: Database): "workspace" | "page_id" | "database_id" | "block_id" {
-  return database.parent.type;
-}
-
-/**
- * Get the parent ID of a database (if it has one).
- *
- * @param database - The database to check
- * @returns The parent ID or null if parent is workspace
- *
- * @example
- * ```typescript
- * const database = await notion.databases.retrieve({ database_id: "..." });
- * const parentId = getDatabaseParentId(database);
- * if (parentId) {
- *   console.log(`Parent ID: ${parentId}`);
- * }
- * ```
- */
-export function getDatabaseParentId(database: Database): PageId | DatabaseId | BlockId | null {
-  const parent = database.parent;
-  switch (parent.type) {
-    case "page_id":
-      return parent.page_id as PageId;
-    case "database_id":
-      return parent.database_id as DatabaseId;
-    case "block_id":
-      return parent.block_id as BlockId;
-    case "workspace":
-      return null;
-    default:
-      // This should never happen with proper typing
-      throw new Error(`Unknown parent type: ${(parent as any).type}`);
-  }
 }

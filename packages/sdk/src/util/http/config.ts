@@ -48,6 +48,7 @@ export class HTTPConfig {
       "Content-Type": "application/json",
       "Notion-Version": NOTION_CONFIG_DEFAULTS.version
     };
+    this.headers["User-Agent"] = "@notion.codes/sdk (https://github.com/mateothegreat/notioncodes)";
     if (config.token) {
       this.headers.Authorization = `Bearer ${config.token}`;
     }

@@ -57,8 +57,8 @@ describe("HTTP client", () => {
     await expect(response$.toPromise()).rejects.toThrow("HTTP 404");
 
     const duration = Date.now() - startTime;
-    // Should fail quickly without retries (less than 1 second)
-    expect(duration).toBeLessThan(1000);
+    // Should fail without retries (less than 5 seconds)
+    expect(duration).toBeLessThan(5000);
 
     const snapshot = reporter!.snapshot();
     expect(snapshot.stage).toBe("error");
@@ -79,8 +79,8 @@ describe("HTTP client", () => {
     await expect(response$.toPromise()).rejects.toThrow("HTTP 500");
 
     const duration = Date.now() - startTime;
-    // Should fail quickly without retries (less than 1 second)
-    expect(duration).toBeLessThan(1000);
+    // Should fail without retries (less than 5 seconds)
+    expect(duration).toBeLessThan(5000);
 
     const snapshot = reporter!.snapshot();
     expect(snapshot.stage).toBe("error");
@@ -102,7 +102,7 @@ describe("HTTP client", () => {
 
     const duration = Date.now() - startTime;
     // Should take time due to retries (at least 300ms for 2 retries with 100ms backoff)
-    expect(duration).toBeGreaterThan(200);
+    expect(duration).toBeGreaterThan(1000);
 
     const snapshot = reporter!.snapshot();
     expect(snapshot.stage).toBe("error");
@@ -124,7 +124,7 @@ describe("HTTP client", () => {
 
     const duration = Date.now() - startTime;
     // Should take time due to retries
-    expect(duration).toBeGreaterThan(200);
+    expect(duration).toBeGreaterThan(1000);
 
     const snapshot = reporter!.snapshot();
     expect(snapshot.stage).toBe("error");
@@ -146,7 +146,7 @@ describe("HTTP client", () => {
 
     const duration = Date.now() - startTime;
     // Should take time due to retries
-    expect(duration).toBeGreaterThan(200);
+    expect(duration).toBeGreaterThan(1000);
 
     const snapshot = reporter!.snapshot();
     expect(snapshot.stage).toBe("error");

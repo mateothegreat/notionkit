@@ -1,8 +1,14 @@
+import type { Block } from "@mateothegreat/notionkit-types/blocks";
+import type { Database } from "@mateothegreat/notionkit-types/databases";
 import {
-  isPropertyListResponse,
+  type GetPropertyRequest,
   type GetRequest,
-  type GetResponse
+  type GetRequestBase,
+  type GetResponse,
+  type PropertyListResponse
 } from "@mateothegreat/notionkit-types/operations/get";
+import type { Page } from "@mateothegreat/notionkit-types/pages";
+import { isPropertyListResponse } from "@mateothegreat/notionkit-types/util";
 import { add, set } from "@mateothegreat/ts-kit/observability/metrics/operations";
 import { Reporter } from "@mateothegreat/ts-kit/observability/metrics/reporter";
 import { EMPTY, Subject, catchError, defer, expand, map, takeUntil, tap, throwError, timer } from "rxjs";
@@ -19,13 +25,13 @@ export class GetOperator extends Operator<GetRequest, GetResponse> {
   /**
    * Create a stream for single-response resources (database, page, block).
    */
-  #single(
-    request: GetRequest,
+  #single<T extends GetRequest["resource"]>(
+    request: GetRequest & { resource: T },
     httpConfig: HTTPConfig,
     reporter?: Reporter<OperatorReport>,
     cancel$?: Subject<void>
-  ): HTTPResponse<GetResponse> {
-    const httpResponse = HTTP.get<GetResponse>(getEndpoint(request.resource, request), httpConfig);
+  ): HTTPResponse<GetResponse<T>> {
+    const httpResponse = HTTP.get<GetResponse<T>>(getEndpoint(request.resource, request), httpConfig);
     return new HTTPResponse(
       httpResponse.data$.pipe(
         takeUntil(cancel$ ?? EMPTY),
@@ -53,15 +59,17 @@ export class GetOperator extends Operator<GetRequest, GetResponse> {
   /**
    * Create a paginated request stream.
    */
-  #paginated(
+  #paginated<T extends GetRequest["resource"]>(
     request: GetRequest & { resource: "property"; property_id: string },
     httpConfig: HTTPConfig,
     operatorConfig: OperatorConfig,
     reporter?: Reporter<OperatorReport>,
     cancel$?: Subject<void>
-  ): HTTPResponse<GetResponse> {
-    const fetchPage = (req: GetRequest & { resource: "property"; property_id: string }): HTTPResponse<GetResponse> => {
-      return HTTP.get<GetResponse>(
+  ): HTTPResponse<GetResponse<T>> {
+    const fetchPage = (
+      req: GetRequest & { resource: "property"; property_id: string }
+    ): HTTPResponse<GetResponse<T>> => {
+      return HTTP.get<GetResponse<T>>(
         getEndpoint(req.resource, { page_id: req.id, property_id: req.property_id }),
         httpConfig
       );
@@ -148,6 +156,18 @@ export class GetOperator extends Operator<GetRequest, GetResponse> {
    * @returns An HTTP response instance.
    */
   execute(
+    request: GetPropertyRequest,
+    httpConfig: HTTPConfig,
+    operatorConfig: OperatorConfig,
+    reporter?: Reporter<OperatorReport>
+  ): HTTPResponse<PropertyListResponse>;
+  execute(
+    request: GetRequestBase,
+    httpConfig: HTTPConfig,
+    operatorConfig: OperatorConfig,
+    reporter?: Reporter<OperatorReport>
+  ): HTTPResponse<Page | Database | Block>;
+  execute(
     request: GetRequest,
     httpConfig: HTTPConfig,
     operatorConfig: OperatorConfig,
@@ -176,7 +196,7 @@ export class GetOperator extends Operator<GetRequest, GetResponse> {
         });
     }
     // Properties might need pagination, others are single requests (database, page, block).
-    if (request.resource === "property" && "property_id" in request) {
+    if (request.resource === "property") {
       return this.#paginated(request, httpConfig, operatorConfig, reporter, cancelSubject);
     } else {
       return this.#single(request, httpConfig, reporter, cancelSubject);
@@ -191,7 +211,12 @@ export class GetOperator extends Operator<GetRequest, GetResponse> {
     return this.#single({ resource: "database", id }, httpConfig, reporter, cancel$);
   }
 
-  block(id: string, httpConfig: HTTPConfig, reporter?: Reporter<OperatorReport>, cancel$?: Subject<void>) {
+  block(
+    id: string,
+    httpConfig: HTTPConfig,
+    reporter?: Reporter<OperatorReport>,
+    cancel$?: Subject<void>
+  ): HTTPResponse<Block> {
     return this.#single({ resource: "block", id }, httpConfig, reporter, cancel$);
   }
 
@@ -201,7 +226,13 @@ export class GetOperator extends Operator<GetRequest, GetResponse> {
     httpConfig: HTTPConfig,
     reporter?: Reporter<OperatorReport>,
     cancel$?: Subject<void>
-  ) {
-    return this.#single({ resource: "property", id, property_id }, httpConfig, reporter, cancel$);
+  ): HTTPResponse<PropertyListResponse> {
+    return this.#paginated(
+      { resource: "property", id, property_id },
+      httpConfig,
+      new OperatorConfig(),
+      reporter,
+      cancel$
+    ) as HTTPResponse<PropertyListResponse>;
   }
 }

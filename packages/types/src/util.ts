@@ -1,4 +1,8 @@
 import type { Type } from "arktype";
+import type { Block } from "./blocks";
+import type { Database } from "./databases";
+import type { PropertyItem, PropertyListResponse } from "./operations/get";
+import type { Page } from "./pages";
 
 /**
  * Utility type to infer the TypeScript type from an ArkType schema.
@@ -43,4 +47,36 @@ export type InferredType<T extends Type> = T extends Type<infer U> ? U : never;
  */
 export const arkToNever = (value: never): never => {
   throw new Error(`Unexpected value: ${value}`);
+};
+
+export const isDatabaseResponse = (response: unknown): response is Database => {
+  return response !== null && typeof response === "object" && "object" in response && response.object === "database";
+};
+
+export const isPageResponse = (response: unknown): response is Page => {
+  return response !== null && typeof response === "object" && "object" in response && response.object === "page";
+};
+
+export const isBlockResponse = (response: unknown): response is Block => {
+  return response !== null && typeof response === "object" && "object" in response && response.object === "block";
+};
+
+export const isPropertyItemResponse = (response: unknown): response is PropertyItem => {
+  return (
+    response !== null && typeof response === "object" && "object" in response && response.object === "property_item"
+  );
+};
+
+export const isPropertyListResponse = (response: unknown): response is PropertyListResponse => {
+  return (
+    response !== null &&
+    typeof response === "object" &&
+    "object" in response &&
+    response.object === "list" &&
+    "results" in response
+  );
+};
+
+export const isPaginatedPropertyType = (type: string): boolean => {
+  return ["title", "rich_text", "relation", "people"].includes(type);
 };

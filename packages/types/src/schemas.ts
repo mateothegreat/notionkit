@@ -1,34 +1,42 @@
 import { scope, type } from "arktype";
 
 /**
- * Schema for notion id validation.
+ * Schema for notion id validation - supports both UUID formats.
+ * Notion IDs can be either with or without dashes.
  */
-export const idSchema = type("/^(.{8})(.{4})(.{4})(.{4})(.{12})$/");
+export const idSchema = type("string");
 
 /**
- * Schema for UUID validation.
+ * Schema for UUID validation with dashes.
  */
 export const uuidSchema = type("/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/");
 
 /**
  * Schema for ISO 8601 date strings.
  */
-export const isoDateSchema = type("/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{3})?Z?$/");
+export const isoDateSchema = type("string");
 
 /**
- * Schema for colors.
+ * Schema for color values.
  */
 export const colorSchema = type(
-  '"default" | "gray" | "brown" | "orange" | "yellow" | "green" | "blue" | "purple" | "pink" | "red" | "gray_background" | "brown_background" | "orange_background" | "yellow_background" | "green_background" | "blue_background" | "purple_background" | "pink_background" | "red_background"'
+  '"default" | "gray" | "brown" | "orange" | "yellow" | "green" | "blue" | "purple" | "pink" | "red"'
 );
 
 /**
- * Type representing colors.
+ * Schema for text annotations.
  */
-export type Color = typeof colorSchema.infer;
+export const annotationsSchema = type({
+  bold: "boolean",
+  italic: "boolean",
+  strikethrough: "boolean",
+  underline: "boolean",
+  code: "boolean",
+  color: colorSchema
+});
 
 /**
- * Schema for emoji strings.
+ * Schema for emoji values (single Unicode character).
  */
 export const emojiSchema = type("string");
 
@@ -96,11 +104,11 @@ export const iconScope = scope({
       url: "string"
     }
   },
-  icon: "emojiIcon | externalIcon | fileIcon | customEmojiIcon"
+  icon: "emojiIcon | externalIcon | fileIcon | customEmojiIcon | null"
 }).export();
 
 /**
- * Schema for icon references.
+ * Schema for icon references (can be null).
  */
 export const iconSchema = iconScope.icon;
 
@@ -121,11 +129,11 @@ const coverScope = scope({
     type: '"file"',
     file: internalFileSchema
   },
-  cover: "externalCover | fileCover"
+  cover: "externalCover | fileCover | null"
 }).export();
 
 /**
- * Schema for cover images.
+ * Schema for cover images (can be null).
  */
 export const coverSchema = coverScope.cover;
 
@@ -133,55 +141,6 @@ export const coverSchema = coverScope.cover;
  * Type representing a cover image.
  */
 export type Cover = typeof coverSchema.infer;
-
-/**
- * Create a scope for parent-related schemas.
- */
-const parentScope = scope({
-  databaseParent: {
-    type: '"database_id"',
-    database_id: "string"
-  },
-  pageParent: {
-    type: '"page_id"',
-    page_id: "string"
-  },
-  workspaceParent: {
-    type: '"workspace"',
-    workspace: "true"
-  },
-  blockParent: {
-    type: '"block_id"',
-    block_id: "string"
-  },
-  parent: "databaseParent | pageParent | workspaceParent | blockParent"
-}).export();
-/**
- * Schema for parent references.
- */
-export const parentSchema = parentScope.parent;
-
-/**
- * Type representing a parent reference.
- */
-export type Parent = typeof parentSchema.infer;
-
-/**
- * Schema for text annotations.
- */
-export const annotationsSchema = type({
-  bold: "boolean",
-  italic: "boolean",
-  strikethrough: "boolean",
-  underline: "boolean",
-  code: "boolean",
-  color: colorSchema
-});
-
-/**
- * Type representing text annotations.
- */
-export type Annotations = typeof annotationsSchema.infer;
 
 /**
  * Create a scope for text content schemas.
@@ -216,14 +175,9 @@ export const richTextItemSchema = type({
 export type RichTextItem = typeof richTextItemSchema.infer;
 
 /**
- * Schema for arrays of rich text items.
+ * Schema for rich text arrays.
  */
-export const richTextSchema = type([richTextItemSchema, "[]"]);
-
-/**
- * Type representing rich text content.
- */
-export type RichText = typeof richTextSchema.infer;
+export const richTextSchema = richTextItemSchema.array();
 
 /**
  * Schema for user objects.
@@ -239,22 +193,31 @@ export const userSchema = type({
 export type User = typeof userSchema.infer;
 
 /**
- * Schema for user mentions.
- */
-export const userMentionSchema = type({
-  type: '"user"',
-  user: {
-    object: '"user"',
-    id: idSchema
-  }
-});
-
-/**
  * Schema for page mentions.
  */
 export const pageMentionSchema = type({
   type: '"page"',
   page: { id: idSchema }
+});
+
+/**
+ * Schema for user mentions.
+ */
+export const userMentionSchema = type({
+  type: '"user"',
+  user: { id: idSchema }
+});
+
+/**
+ * Schema for date mentions.
+ */
+export const dateMentionSchema = type({
+  type: '"date"',
+  date: {
+    start: isoDateSchema,
+    "end?": "'isoDateSchema' | null",
+    "time_zone?": "string | null"
+  }
 });
 
 /**
@@ -266,34 +229,32 @@ export const databaseMentionSchema = type({
 });
 
 /**
- * Schema for date mentions.
+ * Schema for link preview mentions.
  */
-export const dateMentionSchema = type({
-  type: '"date"',
-  date: {
-    start: isoDateSchema,
-    "end?": "string | null",
-    "time_zone?": "string | null"
+export const linkPreviewMentionSchema = type({
+  type: '"link_preview"',
+  link_preview: { url: "string" }
+});
+
+/**
+ * Schema for template mentions.
+ */
+export const templateMentionSchema = type({
+  type: '"template_mention"',
+  template_mention: {
+    template_mention_date: '"today" | "now"',
+    template_mention_user: '"me"'
   }
 });
 
 /**
- * Create a scope for mention-related schemas.
+ * Union schema for all mention types.
  */
-const mentionScope = scope({
-  userMention: userMentionSchema,
-  pageMention: pageMentionSchema,
-  databaseMention: databaseMentionSchema,
-  dateMention: dateMentionSchema,
-  mentionItem: "userMention | pageMention | databaseMention | dateMention"
-}).export();
-
-/**
- * Schema for mention items.
- */
-export const mentionItemSchema = mentionScope.mentionItem;
-
-/**
- * Type representing a mention.
- */
-export type MentionItem = typeof mentionItemSchema.infer;
+export const mentionSchema = type([
+  pageMentionSchema,
+  userMentionSchema,
+  dateMentionSchema,
+  databaseMentionSchema,
+  linkPreviewMentionSchema,
+  templateMentionSchema
+]);

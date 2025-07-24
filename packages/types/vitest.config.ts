@@ -1,9 +1,11 @@
+import tsconfigPaths from "vite-tsconfig-paths";
 import { defineConfig } from "vitest/config";
 
 const include = ["./src/**/*.test.ts", "./test/**/*.test.ts"];
 const exclude = ["node_modules/**", "**/node_modules/**"];
 
 export default defineConfig({
+  plugins: [tsconfigPaths()],
   resolve: {
     alias: {
       $util: "./src/lib/util",
@@ -13,6 +15,10 @@ export default defineConfig({
       $clients: "./src/lib/clients",
       $operators: "./src/lib/operators"
     }
+  },
+  esbuild: {
+    sourcemap: true,
+    sourcesContent: true
   },
   test: {
     include,
