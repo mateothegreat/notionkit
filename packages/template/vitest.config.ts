@@ -6,55 +6,49 @@ const exclude = ["node_modules/**", "**/node_modules/**"];
 
 export default defineConfig({
   plugins: [tsconfigPaths()],
+  resolve: {
+    alias: {
+      $util: "./src/lib/util",
+      $schemas: "./src/lib/schemas",
+      $api: "./src/lib/api",
+      $core: "./src/lib/core",
+      $clients: "./src/lib/clients",
+      $operators: "./src/lib/operators"
+    }
+  },
+  esbuild: {
+    sourcemap: true,
+    sourcesContent: true
+  },
   test: {
     include,
     exclude,
-    globalSetup: ["vitest.setup.ts"],
     bail: 5,
     maxConcurrency: 10,
+    passWithNoTests: false,
+    isolate: true,
+    silent: false,
+    update: false,
+    hideSkippedTests: true,
     typecheck: {
       enabled: true
     },
     benchmark: {
       outputJson: "./coverage/benchmark.json"
     },
-    pool: "forks",
-    poolOptions: {
-      threads: {
-        singleThread: true,
-        execArgv: [
-          // https://nodejs.org/api/cli.html#--cpu-prof
-          "--cpu-prof",
-          "--cpu-prof-dir=/tmp/threads-profile",
-
-          // https://nodejs.org/api/cli.html#--heap-prof
-          "--heap-prof",
-          "--heap-prof-dir=/tmp/threads-profile"
-        ]
-      },
-      forks: {
-        singleFork: true,
-        execArgv: [
-          // https://nodejs.org/api/cli.html#--cpu-prof
-          "--cpu-prof",
-          "--cpu-prof-dir=/tmp/forks-profile",
-          // https://nodejs.org/api/cli.html#--heap-prof
-          "--heap-prof",
-          "--heap-prof-dir=/tmp/forks-profile"
-        ]
-      }
-    },
     coverage: {
       provider: "v8",
-      reporter: ["json"],
+      reporter: ["text", "json", "html"],
       extension: [".ts"],
+      all: true,
       include: ["src/**/*.ts"],
       exclude: [...exclude, "**/*.test.ts", "**/*.d.ts"],
       enabled: true,
-      reportOnFailure: true,
-      experimentalAstAwareRemapping: true,
+      clean: true,
       ignoreEmptyLines: true,
       reportsDirectory: "./coverage",
+      cleanOnRerun: true,
+      reportOnFailure: true,
       processingConcurrency: 10,
       watermarks: {
         branches: [80, 100],

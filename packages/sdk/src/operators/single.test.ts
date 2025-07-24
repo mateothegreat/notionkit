@@ -11,7 +11,7 @@ import { describe, expect, test } from "vitest";
 import type { Scenario } from "../test/scenarios";
 import { HTTPConfig } from "../util/http/config";
 import { OperatorConfig, type OperatorReport } from "./operator";
-import { createGetRunner } from "./runner";
+import { createGetOperator } from "./runner";
 
 const token = process.env.NOTION_TOKEN || process.env.token;
 
@@ -71,7 +71,7 @@ const scenarios: Scenario<GetRequest | GetPropertyRequest>[] = [
 
 describe("GetRunner by resource", () => {
   test.each(scenarios.filter((s) => s.request.resource === "page"))("page", async (scenario) => {
-    const runner = createGetRunner("page");
+    const runner = createGetOperator("page");
     const res = runner.run(
       scenario.request as Extract<typeof scenario.request, { resource: "page" }>,
       new HTTPConfig({ token }),
@@ -83,7 +83,7 @@ describe("GetRunner by resource", () => {
   });
 
   test.each(scenarios.filter((s) => s.request.resource === "database"))("database", async (scenario) => {
-    const runner = createGetRunner("database");
+    const runner = createGetOperator("database");
     const res = runner.run(
       scenario.request as Extract<typeof scenario.request, { resource: "database" }>,
       new HTTPConfig({ token }),
@@ -98,7 +98,7 @@ describe("GetRunner by resource", () => {
   });
 
   test.each(scenarios.filter((s) => s.request.resource === "block"))("block", async (scenario) => {
-    const runner = createGetRunner("block");
+    const runner = createGetOperator("block");
     const res = runner.run(
       scenario.request as Extract<typeof scenario.request, { resource: "block" }>,
       new HTTPConfig({ token }),
@@ -114,7 +114,7 @@ describe("GetRunner by resource", () => {
 
   test.each(scenarios.filter((s) => s.request.resource === "property"))("property", async (scenario) => {
     if (scenario.request.resource === "property" && "property_id" in scenario.request) {
-      const runner = createGetRunner("property");
+      const runner = createGetOperator("property");
       const res = runner.run(
         scenario.request,
         new HTTPConfig({ token }),

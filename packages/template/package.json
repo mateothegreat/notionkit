@@ -1,0 +1,43 @@
+{
+  "name": "@notion.codes/template",
+  "version": "0.0.0",
+  "description": "",
+  "type": "module",
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "prepack": "npm run build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:coverage:watch": "vitest run --coverage --watch",
+    "test:totals": "npm run test 2>/dev/null | grep -iE \"(test files|tests|passed|failed)\" | tail -3"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "devDependencies": {
+    "ansis": "4.1.0",
+    "@notion.codes/sdk": "workspace:*",
+    "@notion.codes/types": "workspace:*",
+    "@types/node": "^24.0.14",
+    "@vitest/coverage-v8": "3.2.4",
+    "tsx": "^4.20.3",
+    "typescript": "5.8.3",
+    "vite-tsconfig-paths": "5.1.4",
+    "vitest": "3.2.4"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/notioncodes/template.git"
+  },
+  "bugs": {
+    "url": "https://github.com/notioncodes/template/issues"
+  },
+  "homepage": "https://github.com/notioncodes/template"
+}

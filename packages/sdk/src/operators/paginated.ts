@@ -10,9 +10,9 @@ import { HTTP } from "../util/http/client";
 import type { HTTPConfig } from "../util/http/config";
 import { HTTPResponse } from "../util/http/response";
 import type { OperatorConfig, OperatorReport } from "./operator";
-import type { GetRunner } from "./runner";
+import type { GetOperator } from "./runner";
 
-export class PaginatedPropertyRunner implements GetRunner<"property"> {
+export class PaginatedPropertyRunner implements GetOperator<"property"> {
   run(
     request: GetPropertyRequest,
     http: HTTPConfig,

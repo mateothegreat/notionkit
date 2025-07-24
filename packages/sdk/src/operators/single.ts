@@ -6,7 +6,7 @@ import { HTTP } from "../util/http/client";
 import type { HTTPConfig } from "../util/http/config";
 import { HTTPResponse } from "../util/http/response";
 import type { OperatorConfig, OperatorReport } from "./operator";
-import type { GetRequestForResource, GetRunner } from "./runner";
+import type { GetOperator, GetRequestForResource } from "./runner";
 
 /**
  * Runner for single resource operations (page, database, block).
@@ -17,7 +17,7 @@ import type { GetRequestForResource, GetRunner } from "./runner";
  *
  * @template T - The resource type, constrained to single resources (page, database, block)
  */
-export class SingleResourceRunner<T extends "page" | "database" | "block"> implements GetRunner<T> {
+export class SingleResourceRunner<T extends "page" | "database" | "block"> implements GetOperator<T> {
   constructor(private endpointPrefix: T) {}
 
   /**

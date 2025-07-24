@@ -22,7 +22,7 @@ export type GetRequestForResource<T extends GetResourceType> = T extends "proper
     ? Extract<GetRequestBase, { resource: T }>
     : never;
 
-export type GetRunner<T extends GetResourceType = GetResourceType> = {
+export type GetOperator<T extends GetResourceType = GetResourceType> = {
   run(
     request: GetRequestForResource<T>,
     http: HTTPConfig,
@@ -32,7 +32,7 @@ export type GetRunner<T extends GetResourceType = GetResourceType> = {
   ): HTTPResponse<GetResponse<T>>;
 };
 
-export function createGetRunner(resource: GetResourceType): GetRunner {
+export const createGetOperator = (resource: GetResourceType): GetOperator => {
   switch (resource) {
     case "page":
       return new SingleResourceRunner("page");
@@ -42,5 +42,7 @@ export function createGetRunner(resource: GetResourceType): GetRunner {
       return new SingleResourceRunner("database");
     case "property":
       return new PaginatedPropertyRunner();
+    default:
+      throw new Error(`unsupported resource type: ${resource}`);
   }
-}
+};
