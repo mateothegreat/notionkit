@@ -1,9 +1,9 @@
 import type { Scenario } from "$test/scenarios";
 import { OperatorSnapshot } from "$test/snapshots";
 import type { Search, SearchResponse } from "@mateothegreat/notionkit-types";
-import { cyanBright } from "ansis";
+import { blueBright, cyanBright, yellowBright } from "ansis";
 import { firstValueFrom, reduce } from "rxjs";
-import { beforeEach, describe, expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 import { HTTPConfig } from "../util/http/config";
 import { SearchOperator } from "./search";
 
@@ -76,22 +76,21 @@ const scenarios: Scenario<Search>[] = [
   }
 ];
 
-describe(
-  `SearchOperator`,
-  () => {
-    let operator: SearchOperator;
-
-    beforeEach(() => {
-      operator = new SearchOperator();
-    });
-
-    test.each(scenarios)(`${cyanBright("$name")}`, async (scenario) => {
+describe(`SearchOperator`, () => {
+  test.each(scenarios)(
+    `${cyanBright("$name")}`,
+    {
+      timeout: 15_000
+    },
+    async (scenario) => {
+      const start = performance.now();
       const snapshot = new OperatorSnapshot<Search>({
         operator: "search",
         scenario,
         request: scenario.request,
         httpConfig: new HTTPConfig({ token })
       });
+      const operator = new SearchOperator();
 
       const res = operator.execute(snapshot.request, snapshot.httpConfig, {
         timeout: scenario.timeout,
@@ -99,7 +98,6 @@ describe(
       });
 
       let emissions = 0;
-
       res.reporter.metrics$.subscribe((metrics) => {
         emissions++;
         snapshot.states.push(metrics);
@@ -111,17 +109,16 @@ describe(
         res.data$.pipe(reduce((acc, page) => acc.concat(page.results), [] as SearchResponse["results"]))
       );
 
-      const metrics = res.reporter.snapshot();
-      expect(metrics.stage).toBe("complete");
-
-      expect(metrics.requests).toEqual(scenario.expected.requests);
       expect(emissions).toEqual(scenario.expected.requests! + 2);
+      expect(res.reporter.snapshot().stage).toBe("complete");
+      expect(res.reporter.snapshot().requests).toEqual(scenario.expected.requests);
       expect(results.length).toEqual(scenario.expected.requests! * scenario.request.page_size!);
 
+      console.log(
+        `${yellowBright(results.length)} results in ${blueBright(Math.round(performance.now() - start) + "ms")}`
+      );
+
       await snapshot.save(scenario, results);
-    });
-  },
-  {
-    timeout: 30_000
-  }
-);
+    }
+  );
+});
